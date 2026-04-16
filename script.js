@@ -9,7 +9,22 @@ const playerNameInput = document.getElementById("playerName");
 const leaderboardElement = document.getElementById("leaderboard");
 
 const size = 4;
-const leaderboardStorageKey = "fifteen-leaderboard";
+const supabaseConfig = window.SUPABASE_CONFIG ?? {};
+const hasSupabaseConfig =
+  typeof window.supabase !== "undefined" &&
+  typeof supabaseConfig.url === "string" &&
+  typeof supabaseConfig.anonKey === "string" &&
+  !supabaseConfig.url.includes("PASTE_YOUR_SUPABASE_URL_HERE") &&
+  !supabaseConfig.anonKey.includes("PASTE_YOUR_SUPABASE_ANON_KEY_HERE");
+const supabaseClient = hasSupabaseConfig
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    })
+  : null;
 let tiles = [];
 let moveCount = 0;
 let secondsElapsed = 0;
@@ -60,26 +75,20 @@ function setMessage(text) {
   messageElement.textContent = text;
 }
 
-function getStoredLeaderboard() {
-  try {
-    const rawValue = window.localStorage.getItem(leaderboardStorageKey);
-    if (!rawValue) {
-      return [];
-    }
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
-    const parsedValue = JSON.parse(rawValue);
-    return Array.isArray(parsedValue) ? parsedValue : [];
-  } catch {
-    return [];
+function renderLeaderboard(records, note) {
+  if (note) {
+    leaderboardElement.innerHTML = `<div class="leaderboard-empty">${escapeHtml(note)}</div>`;
+    return;
   }
-}
-
-function saveLeaderboard(records) {
-  window.localStorage.setItem(leaderboardStorageKey, JSON.stringify(records));
-}
-
-function renderLeaderboard() {
-  const records = getStoredLeaderboard();
 
   if (records.length === 0) {
     leaderboardElement.innerHTML = '<div class="leaderboard-empty">Пока нет рекордов. Сыграйте первую партию.</div>';
@@ -108,25 +117,55 @@ function renderLeaderboard() {
   `;
 }
 
-function saveRecord() {
-  const records = getStoredLeaderboard();
-  const nextRecord = {
-    player: currentPlayer,
-    moves: moveCount,
-    time: secondsElapsed
-  };
+async function loadLeaderboard() {
+  if (!supabaseClient) {
+    renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Supabase в файле supabase-config.js.");
+    return;
+  }
 
-  records.push(nextRecord);
-  records.sort((first, second) => {
-    if (first.moves !== second.moves) {
-      return first.moves - second.moves;
-    }
+  renderLeaderboard([], "Загружаю общий рейтинг...");
 
-    return first.time - second.time;
-  });
+  const { data, error } = await supabaseClient
+    .from("leaderboard")
+    .select("player, moves, time_seconds")
+    .order("moves", { ascending: true })
+    .order("time_seconds", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(7);
 
-  saveLeaderboard(records.slice(0, 7));
-  renderLeaderboard();
+  if (error) {
+    renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Supabase.");
+    return;
+  }
+
+  const records = data.map((record) => ({
+    player: record.player,
+    moves: record.moves,
+    time: record.time_seconds
+  }));
+
+  renderLeaderboard(records);
+}
+
+async function saveRecord() {
+  if (!supabaseClient) {
+    return false;
+  }
+
+  const { error } = await supabaseClient
+    .from("leaderboard")
+    .insert({
+      player: currentPlayer,
+      moves: moveCount,
+      time_seconds: secondsElapsed
+    });
+
+  if (error) {
+    return false;
+  }
+
+  await loadLeaderboard();
+  return true;
 }
 
 function getPlayerName() {
@@ -262,7 +301,7 @@ function highlightMovableTile() {
   window.setTimeout(() => tileButton.classList.remove("tile-highlight"), 650);
 }
 
-function handleTileClick(tileIndex) {
+async function handleTileClick(tileIndex) {
   const emptyIndex = getEmptyIndex();
 
   if (!areAdjacent(tileIndex, emptyIndex)) {
@@ -281,8 +320,13 @@ function handleTileClick(tileIndex) {
 
   if (isSolved()) {
     stopTimer();
-    saveRecord();
-    setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}.`);
+    const saved = await saveRecord();
+    if (saved) {
+      setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Результат добавлен в общий рейтинг.`);
+      return;
+    }
+
+    setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Но онлайн-рейтинг сейчас недоступен.`);
     return;
   }
 
@@ -339,4 +383,4 @@ playerForm.addEventListener("submit", (event) => {
 tiles = createSolvedTiles();
 renderBoard();
 updateStats();
-renderLeaderboard();
+loadLeaderboard();
