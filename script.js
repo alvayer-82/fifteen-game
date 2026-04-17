@@ -6,6 +6,7 @@ const shuffleButton = document.getElementById("shuffleButton");
 const hintButton = document.getElementById("hintButton");
 const playerForm = document.getElementById("playerForm");
 const playerNameInput = document.getElementById("playerName");
+const playerSuggestionsElement = document.getElementById("playerSuggestions");
 const leaderboardElement = document.getElementById("leaderboard");
 
 const size = 4;
@@ -99,7 +100,7 @@ function renderLeaderboard(records, note) {
     .map((record, index) => `
       <div class="leaderboard-row">
         <span class="leaderboard-rank">#${index + 1}</span>
-        <span class="leaderboard-player">${record.player}</span>
+        <span class="leaderboard-player">${escapeHtml(record.player)}</span>
         <span class="leaderboard-metric">${record.moves}</span>
         <span class="leaderboard-metric">${formatTime(record.time)}</span>
       </div>
@@ -117,9 +118,18 @@ function renderLeaderboard(records, note) {
   `;
 }
 
+function renderPlayerSuggestions(records) {
+  const uniquePlayers = [...new Set(records.map((record) => record.player).filter(Boolean))];
+
+  playerSuggestionsElement.innerHTML = uniquePlayers
+    .map((player) => `<option value="${escapeHtml(player)}"></option>`)
+    .join("");
+}
+
 async function loadLeaderboard() {
   if (!supabaseClient) {
     renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Supabase в файле supabase-config.js.");
+    renderPlayerSuggestions([]);
     return;
   }
 
@@ -131,10 +141,11 @@ async function loadLeaderboard() {
     .order("moves", { ascending: true })
     .order("time_seconds", { ascending: true })
     .order("created_at", { ascending: true })
-    .limit(7);
+    .limit(100);
 
   if (error) {
     renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Supabase.");
+    renderPlayerSuggestions([]);
     return;
   }
 
@@ -144,7 +155,8 @@ async function loadLeaderboard() {
     time: record.time_seconds
   }));
 
-  renderLeaderboard(records);
+  renderLeaderboard(records.slice(0, 7));
+  renderPlayerSuggestions(records);
 }
 
 async function saveRecord() {

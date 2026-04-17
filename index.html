@@ -25,12 +25,15 @@
             id="playerName"
             name="playerName"
             type="text"
+            list="playerSuggestions"
             maxlength="24"
             placeholder="Введите имя"
             autocomplete="nickname"
           >
+          <datalist id="playerSuggestions"></datalist>
           <button class="button button-primary" type="submit">Старт</button>
         </div>
+        <p class="player-help">Можно выбрать игрока из списка рекордов или ввести новое имя.</p>
       </form>
       <div class="stats">
         <div class="stat-card">
