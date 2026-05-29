@@ -32,6 +32,11 @@ let secondsElapsed = 0;
 let timerId = null;
 let gameStarted = false;
 let currentPlayer = "";
+let leaderboardRecords = [];
+let leaderboardSort = {
+  key: "moves",
+  direction: "asc"
+};
 
 function createSolvedTiles() {
   return Array.from({ length: size * size }, (_, index) =>
@@ -85,6 +90,51 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function getSortIndicator(key) {
+  if (leaderboardSort.key !== key) {
+    return "";
+  }
+
+  return leaderboardSort.direction === "asc" ? "▲" : "▼";
+}
+
+function compareRecords(first, second) {
+  if (leaderboardSort.key === "player") {
+    const byPlayer = first.player.localeCompare(second.player, "ru", { sensitivity: "base" });
+    if (byPlayer !== 0) {
+      return leaderboardSort.direction === "asc" ? byPlayer : -byPlayer;
+    }
+  }
+
+  if (leaderboardSort.key === "moves") {
+    const byMoves = first.moves - second.moves;
+    if (byMoves !== 0) {
+      return leaderboardSort.direction === "asc" ? byMoves : -byMoves;
+    }
+  }
+
+  if (leaderboardSort.key === "time") {
+    const byTime = first.time - second.time;
+    if (byTime !== 0) {
+      return leaderboardSort.direction === "asc" ? byTime : -byTime;
+    }
+  }
+
+  if (first.moves !== second.moves) {
+    return first.moves - second.moves;
+  }
+
+  if (first.time !== second.time) {
+    return first.time - second.time;
+  }
+
+  return first.player.localeCompare(second.player, "ru", { sensitivity: "base" });
+}
+
+function getSortedLeaderboardRecords(records) {
+  return records.slice().sort(compareRecords);
+}
+
 function renderLeaderboard(records, note) {
   if (note) {
     leaderboardElement.innerHTML = `<div class="leaderboard-empty">${escapeHtml(note)}</div>`;
@@ -96,7 +146,8 @@ function renderLeaderboard(records, note) {
     return;
   }
 
-  const rows = records
+  const sortedRecords = getSortedLeaderboardRecords(records);
+  const rows = sortedRecords
     .map((record, index) => `
       <div class="leaderboard-row">
         <span class="leaderboard-rank">#${index + 1}</span>
@@ -110,9 +161,24 @@ function renderLeaderboard(records, note) {
   leaderboardElement.innerHTML = `
     <div class="leaderboard-row leaderboard-head">
       <span>Место</span>
-      <span>Игрок</span>
-      <span class="leaderboard-metric">Ходы</span>
-      <span class="leaderboard-metric">Время</span>
+      <span>
+        <button class="leaderboard-sort" type="button" data-sort-key="player" data-align="left">
+          Игрок
+          <span class="leaderboard-sort-indicator">${getSortIndicator("player")}</span>
+        </button>
+      </span>
+      <span class="leaderboard-metric">
+        <button class="leaderboard-sort" type="button" data-sort-key="moves">
+          Ходы
+          <span class="leaderboard-sort-indicator">${getSortIndicator("moves")}</span>
+        </button>
+      </span>
+      <span class="leaderboard-metric">
+        <button class="leaderboard-sort" type="button" data-sort-key="time">
+          Время
+          <span class="leaderboard-sort-indicator">${getSortIndicator("time")}</span>
+        </button>
+      </span>
     </div>
     ${rows}
   `;
@@ -155,7 +221,8 @@ async function loadLeaderboard() {
     time: record.time_seconds
   }));
 
-  renderLeaderboard(records.slice(0, 7));
+  leaderboardRecords = records;
+  renderLeaderboard(leaderboardRecords);
   renderPlayerSuggestions(records);
 }
 
@@ -376,6 +443,29 @@ hintButton.addEventListener("click", () => {
 
   highlightMovableTile();
   setMessage("Подсветил одну из доступных плиток.");
+});
+
+leaderboardElement.addEventListener("click", (event) => {
+  const sortButton = event.target.closest("[data-sort-key]");
+  if (!sortButton) {
+    return;
+  }
+
+  const nextSortKey = sortButton.dataset.sortKey;
+  if (!nextSortKey) {
+    return;
+  }
+
+  if (leaderboardSort.key === nextSortKey) {
+    leaderboardSort.direction = leaderboardSort.direction === "asc" ? "desc" : "asc";
+  } else {
+    leaderboardSort = {
+      key: nextSortKey,
+      direction: nextSortKey === "player" ? "asc" : "asc"
+    };
+  }
+
+  renderLeaderboard(leaderboardRecords);
 });
 
 playerForm.addEventListener("submit", (event) => {

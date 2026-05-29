@@ -227,6 +227,38 @@ h1 {
   color: var(--muted);
 }
 
+.leaderboard-head span,
+.leaderboard-sort {
+  font: inherit;
+}
+
+.leaderboard-sort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.leaderboard-sort[data-align="left"] {
+  justify-content: flex-start;
+}
+
+.leaderboard-sort:hover {
+  color: var(--text);
+}
+
+.leaderboard-sort-indicator {
+  min-width: 10px;
+  font-size: 0.8rem;
+  color: var(--primary);
+}
+
 .leaderboard-row {
   padding: 10px 0;
   border-bottom: 1px solid rgba(101, 73, 37, 0.08);
