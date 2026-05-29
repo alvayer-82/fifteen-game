@@ -206,6 +206,41 @@ h1 {
   margin-top: 14px;
 }
 
+.leaderboard-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.leaderboard-page-info {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.leaderboard-page-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.leaderboard-page-button {
+  min-width: 108px;
+  padding: 10px 14px;
+  border: 1px solid rgba(101, 73, 37, 0.12);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+}
+
+.leaderboard-page-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .leaderboard-empty,
 .leaderboard-row {
   display: grid;
@@ -367,6 +402,19 @@ h1 {
 @media (max-width: 560px) {
   .player-row {
     flex-direction: column;
+  }
+
+  .leaderboard-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .leaderboard-page-actions {
+    width: 100%;
+  }
+
+  .leaderboard-page-button {
+    flex: 1;
   }
 
   .leaderboard-empty,

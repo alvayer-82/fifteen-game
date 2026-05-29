@@ -8,8 +8,10 @@ const playerForm = document.getElementById("playerForm");
 const playerNameInput = document.getElementById("playerName");
 const playerSuggestionsElement = document.getElementById("playerSuggestions");
 const leaderboardElement = document.getElementById("leaderboard");
+const leaderboardPaginationElement = document.getElementById("leaderboardPagination");
 
 const size = 4;
+const leaderboardPageSize = 10;
 const supabaseConfig = window.SUPABASE_CONFIG ?? {};
 const hasSupabaseConfig =
   typeof window.supabase !== "undefined" &&
@@ -37,6 +39,7 @@ let leaderboardSort = {
   key: "moves",
   direction: "asc"
 };
+let leaderboardPage = 1;
 
 function createSolvedTiles() {
   return Array.from({ length: size * size }, (_, index) =>
@@ -135,22 +138,56 @@ function getSortedLeaderboardRecords(records) {
   return records.slice().sort(compareRecords);
 }
 
+function getLeaderboardPageCount(records) {
+  return Math.max(1, Math.ceil(records.length / leaderboardPageSize));
+}
+
+function renderLeaderboardPagination(totalRecords, currentPage, totalPages) {
+  if (totalRecords === 0) {
+    leaderboardPaginationElement.innerHTML = "";
+    return;
+  }
+
+  const startRecord = (currentPage - 1) * leaderboardPageSize + 1;
+  const endRecord = Math.min(totalRecords, currentPage * leaderboardPageSize);
+
+  leaderboardPaginationElement.innerHTML = `
+    <span class="leaderboard-page-info">
+      Показаны ${startRecord}-${endRecord} из ${totalRecords}
+    </span>
+    <div class="leaderboard-page-actions">
+      <button class="leaderboard-page-button" type="button" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>
+        Назад
+      </button>
+      <button class="leaderboard-page-button" type="button" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>
+        Вперёд
+      </button>
+    </div>
+  `;
+}
+
 function renderLeaderboard(records, note) {
   if (note) {
     leaderboardElement.innerHTML = `<div class="leaderboard-empty">${escapeHtml(note)}</div>`;
+    leaderboardPaginationElement.innerHTML = "";
     return;
   }
 
   if (records.length === 0) {
     leaderboardElement.innerHTML = '<div class="leaderboard-empty">Пока нет рекордов. Сыграйте первую партию.</div>';
+    leaderboardPaginationElement.innerHTML = "";
     return;
   }
 
   const sortedRecords = getSortedLeaderboardRecords(records);
-  const rows = sortedRecords
+  const totalPages = getLeaderboardPageCount(sortedRecords);
+  leaderboardPage = Math.min(Math.max(1, leaderboardPage), totalPages);
+  const startIndex = (leaderboardPage - 1) * leaderboardPageSize;
+  const pagedRecords = sortedRecords.slice(startIndex, startIndex + leaderboardPageSize);
+  const rows = pagedRecords
     .map((record, index) => `
       <div class="leaderboard-row">
-        <span class="leaderboard-rank">#${index + 1}</span>
+        <span class="leaderboard-rank">#${startIndex + index + 1}</span>
         <span class="leaderboard-player">${escapeHtml(record.player)}</span>
         <span class="leaderboard-metric">${record.moves}</span>
         <span class="leaderboard-metric">${formatTime(record.time)}</span>
@@ -182,6 +219,8 @@ function renderLeaderboard(records, note) {
     </div>
     ${rows}
   `;
+
+  renderLeaderboardPagination(sortedRecords.length, leaderboardPage, totalPages);
 }
 
 function renderPlayerSuggestions(records) {
@@ -222,6 +261,7 @@ async function loadLeaderboard() {
   }));
 
   leaderboardRecords = records;
+  leaderboardPage = 1;
   renderLeaderboard(leaderboardRecords);
   renderPlayerSuggestions(records);
 }
@@ -463,6 +503,27 @@ leaderboardElement.addEventListener("click", (event) => {
       key: nextSortKey,
       direction: nextSortKey === "player" ? "asc" : "asc"
     };
+  }
+
+  leaderboardPage = 1;
+  renderLeaderboard(leaderboardRecords);
+});
+
+leaderboardPaginationElement.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-page-action]");
+  if (!pageButton) {
+    return;
+  }
+
+  const action = pageButton.dataset.pageAction;
+  const totalPages = getLeaderboardPageCount(leaderboardRecords);
+
+  if (action === "prev" && leaderboardPage > 1) {
+    leaderboardPage -= 1;
+  }
+
+  if (action === "next" && leaderboardPage < totalPages) {
+    leaderboardPage += 1;
   }
 
   renderLeaderboard(leaderboardRecords);
