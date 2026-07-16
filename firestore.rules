@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leaderboard/{documentId} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(["player", "moves", "timeSeconds", "createdAt", "createdAtMs"]) &&
+        request.resource.data.player is string &&
+        request.resource.data.player.size() > 0 &&
+        request.resource.data.player.size() <= 24 &&
+        request.resource.data.moves is int &&
+        request.resource.data.moves > 0 &&
+        request.resource.data.timeSeconds is int &&
+        request.resource.data.timeSeconds >= 0 &&
+        request.resource.data.createdAtMs is int;
+      allow update, delete: if false;
+    }
+  }
+}

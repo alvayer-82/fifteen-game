@@ -1,3 +1,16 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  getFirestore,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
 const boardElement = document.getElementById("board");
 const movesElement = document.getElementById("moves");
 const timerElement = document.getElementById("timer");
@@ -12,22 +25,11 @@ const leaderboardPaginationElement = document.getElementById("leaderboardPaginat
 
 const size = 4;
 const leaderboardPageSize = 10;
-const supabaseConfig = window.SUPABASE_CONFIG ?? {};
-const hasSupabaseConfig =
-  typeof window.supabase !== "undefined" &&
-  typeof supabaseConfig.url === "string" &&
-  typeof supabaseConfig.anonKey === "string" &&
-  !supabaseConfig.url.includes("PASTE_YOUR_SUPABASE_URL_HERE") &&
-  !supabaseConfig.anonKey.includes("PASTE_YOUR_SUPABASE_ANON_KEY_HERE");
-const supabaseClient = hasSupabaseConfig
-  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
-      }
-    })
-  : null;
+const hasFirebaseConfig = Object.values(firebaseConfig).every(
+  (value) => typeof value === "string" && value.length > 0 && !value.includes("PASTE_YOUR_FIREBASE_")
+);
+const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
+const firestore = firebaseApp ? getFirestore(firebaseApp) : null;
 let tiles = [];
 let moveCount = 0;
 let secondsElapsed = 0;
@@ -232,54 +234,56 @@ function renderPlayerSuggestions(records) {
 }
 
 async function loadLeaderboard() {
-  if (!supabaseClient) {
-    renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Supabase в файле supabase-config.js.");
+  if (!firestore) {
+    renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Firebase в файле firebase-config.js.");
     renderPlayerSuggestions([]);
     return;
   }
 
   renderLeaderboard([], "Загружаю общий рейтинг...");
 
-  const { data, error } = await supabaseClient
-    .from("leaderboard")
-    .select("player, moves, time_seconds")
-    .order("moves", { ascending: true })
-    .order("time_seconds", { ascending: true })
-    .order("created_at", { ascending: true })
-    .limit(100);
+  try {
+    const leaderboardQuery = query(
+      collection(firestore, "leaderboard"),
+      orderBy("createdAtMs", "desc"),
+      limit(100)
+    );
+    const snapshot = await getDocs(leaderboardQuery);
 
-  if (error) {
-    renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Supabase.");
+    const records = snapshot.docs.map((documentSnapshot) => {
+      const data = documentSnapshot.data();
+      return {
+        player: data.player,
+        moves: data.moves,
+        time: data.timeSeconds,
+        createdAtMs: data.createdAtMs ?? 0
+      };
+    });
+
+    leaderboardRecords = records;
+    leaderboardPage = 1;
+    renderLeaderboard(leaderboardRecords);
+    renderPlayerSuggestions(records);
+  } catch {
+    renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Firebase и Firestore Rules.");
     renderPlayerSuggestions([]);
-    return;
   }
-
-  const records = data.map((record) => ({
-    player: record.player,
-    moves: record.moves,
-    time: record.time_seconds
-  }));
-
-  leaderboardRecords = records;
-  leaderboardPage = 1;
-  renderLeaderboard(leaderboardRecords);
-  renderPlayerSuggestions(records);
 }
 
 async function saveRecord() {
-  if (!supabaseClient) {
+  if (!firestore) {
     return false;
   }
 
-  const { error } = await supabaseClient
-    .from("leaderboard")
-    .insert({
+  try {
+    await addDoc(collection(firestore, "leaderboard"), {
       player: currentPlayer,
       moves: moveCount,
-      time_seconds: secondsElapsed
+      timeSeconds: secondsElapsed,
+      createdAt: serverTimestamp(),
+      createdAtMs: Date.now()
     });
-
-  if (error) {
+  } catch {
     return false;
   }
 
@@ -501,7 +505,7 @@ leaderboardElement.addEventListener("click", (event) => {
   } else {
     leaderboardSort = {
       key: nextSortKey,
-      direction: nextSortKey === "player" ? "asc" : "asc"
+      direction: "asc"
     };
   }
 
