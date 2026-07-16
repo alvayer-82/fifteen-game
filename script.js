@@ -25,6 +25,7 @@ const leaderboardPaginationElement = document.getElementById("leaderboardPaginat
 
 const size = 4;
 const leaderboardPageSize = 10;
+const leaderboardCollectionName = "leaderboard_v2";
 const hasFirebaseConfig = Object.values(firebaseConfig).every(
   (value) => typeof value === "string" && value.length > 0 && !value.includes("PASTE_YOUR_FIREBASE_")
 );
@@ -244,7 +245,7 @@ async function loadLeaderboard() {
 
   try {
     const leaderboardQuery = query(
-      collection(firestore, "leaderboard"),
+      collection(firestore, leaderboardCollectionName),
       orderBy("createdAtMs", "desc"),
       limit(100)
     );
@@ -276,7 +277,7 @@ async function saveRecord() {
   }
 
   try {
-    await addDoc(collection(firestore, "leaderboard"), {
+    await addDoc(collection(firestore, leaderboardCollectionName), {
       player: currentPlayer,
       moves: moveCount,
       timeSeconds: secondsElapsed,
