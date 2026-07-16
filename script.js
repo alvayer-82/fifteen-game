@@ -10,6 +10,26 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import {
+  areAdjacent,
+  BOARD_SIZE,
+  createSolvedTiles,
+  formatTime,
+  getColumn,
+  getRow,
+  isSolvable,
+  isSolved,
+  swapTiles
+} from "./src/game-core.js";
+import {
+  escapeHtml,
+  getLeaderboardPageCount,
+  getPagedLeaderboardRecords,
+  getSortedLeaderboardRecords,
+  getSortIndicator,
+  getUniquePlayers,
+  LEADERBOARD_PAGE_SIZE
+} from "./src/leaderboard-core.js";
 
 const boardElement = document.getElementById("board");
 const movesElement = document.getElementById("moves");
@@ -23,14 +43,15 @@ const playerSuggestionsElement = document.getElementById("playerSuggestions");
 const leaderboardElement = document.getElementById("leaderboard");
 const leaderboardPaginationElement = document.getElementById("leaderboardPagination");
 
-const size = 4;
-const leaderboardPageSize = 10;
+const size = BOARD_SIZE;
+const leaderboardPageSize = LEADERBOARD_PAGE_SIZE;
 const leaderboardCollectionName = "leaderboard_v2";
 const hasFirebaseConfig = Object.values(firebaseConfig).every(
   (value) => typeof value === "string" && value.length > 0 && !value.includes("PASTE_YOUR_FIREBASE_")
 );
 const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
 const firestore = firebaseApp ? getFirestore(firebaseApp) : null;
+
 let tiles = [];
 let moveCount = 0;
 let secondsElapsed = 0;
@@ -43,12 +64,6 @@ let leaderboardSort = {
   direction: "asc"
 };
 let leaderboardPage = 1;
-
-function createSolvedTiles() {
-  return Array.from({ length: size * size }, (_, index) =>
-    index === size * size - 1 ? 0 : index + 1
-  );
-}
 
 function renderBoard() {
   boardElement.innerHTML = "";
@@ -66,7 +81,7 @@ function renderBoard() {
     tileButton.className = "tile";
     tileButton.type = "button";
     tileButton.textContent = value;
-    tileButton.setAttribute("aria-label", `Плитка ${value}`);
+    tileButton.setAttribute("aria-label", `РџР»РёС‚РєР° ${value}`);
     tileButton.addEventListener("click", () => handleTileClick(index));
     boardElement.appendChild(tileButton);
   });
@@ -77,72 +92,8 @@ function updateStats() {
   timerElement.textContent = formatTime(secondsElapsed);
 }
 
-function formatTime(totalSeconds) {
-  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-  const seconds = String(totalSeconds % 60).padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
-
 function setMessage(text) {
   messageElement.textContent = text;
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function getSortIndicator(key) {
-  if (leaderboardSort.key !== key) {
-    return "";
-  }
-
-  return leaderboardSort.direction === "asc" ? "▲" : "▼";
-}
-
-function compareRecords(first, second) {
-  if (leaderboardSort.key === "player") {
-    const byPlayer = first.player.localeCompare(second.player, "ru", { sensitivity: "base" });
-    if (byPlayer !== 0) {
-      return leaderboardSort.direction === "asc" ? byPlayer : -byPlayer;
-    }
-  }
-
-  if (leaderboardSort.key === "moves") {
-    const byMoves = first.moves - second.moves;
-    if (byMoves !== 0) {
-      return leaderboardSort.direction === "asc" ? byMoves : -byMoves;
-    }
-  }
-
-  if (leaderboardSort.key === "time") {
-    const byTime = first.time - second.time;
-    if (byTime !== 0) {
-      return leaderboardSort.direction === "asc" ? byTime : -byTime;
-    }
-  }
-
-  if (first.moves !== second.moves) {
-    return first.moves - second.moves;
-  }
-
-  if (first.time !== second.time) {
-    return first.time - second.time;
-  }
-
-  return first.player.localeCompare(second.player, "ru", { sensitivity: "base" });
-}
-
-function getSortedLeaderboardRecords(records) {
-  return records.slice().sort(compareRecords);
-}
-
-function getLeaderboardPageCount(records) {
-  return Math.max(1, Math.ceil(records.length / leaderboardPageSize));
 }
 
 function renderLeaderboardPagination(totalRecords, currentPage, totalPages) {
@@ -156,14 +107,14 @@ function renderLeaderboardPagination(totalRecords, currentPage, totalPages) {
 
   leaderboardPaginationElement.innerHTML = `
     <span class="leaderboard-page-info">
-      Показаны ${startRecord}-${endRecord} из ${totalRecords}
+      РџРѕРєР°Р·Р°РЅС‹ ${startRecord}-${endRecord} РёР· ${totalRecords}
     </span>
     <div class="leaderboard-page-actions">
       <button class="leaderboard-page-button" type="button" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>
-        Назад
+        РќР°Р·Р°Рґ
       </button>
       <button class="leaderboard-page-button" type="button" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>
-        Вперёд
+        Р’РїРµСЂС‘Рґ
       </button>
     </div>
   `;
@@ -177,20 +128,19 @@ function renderLeaderboard(records, note) {
   }
 
   if (records.length === 0) {
-    leaderboardElement.innerHTML = '<div class="leaderboard-empty">Пока нет рекордов. Сыграйте первую партию.</div>';
+    leaderboardElement.innerHTML = '<div class="leaderboard-empty">РџРѕРєР° РЅРµС‚ СЂРµРєРѕСЂРґРѕРІ. РЎС‹РіСЂР°Р№С‚Рµ РїРµСЂРІСѓСЋ РїР°СЂС‚РёСЋ.</div>';
     leaderboardPaginationElement.innerHTML = "";
     return;
   }
 
-  const sortedRecords = getSortedLeaderboardRecords(records);
-  const totalPages = getLeaderboardPageCount(sortedRecords);
-  leaderboardPage = Math.min(Math.max(1, leaderboardPage), totalPages);
-  const startIndex = (leaderboardPage - 1) * leaderboardPageSize;
-  const pagedRecords = sortedRecords.slice(startIndex, startIndex + leaderboardPageSize);
-  const rows = pagedRecords
+  const sortedRecords = getSortedLeaderboardRecords(records, leaderboardSort);
+  const pagedLeaderboard = getPagedLeaderboardRecords(sortedRecords, leaderboardPage, leaderboardPageSize);
+  leaderboardPage = pagedLeaderboard.page;
+
+  const rows = pagedLeaderboard.records
     .map((record, index) => `
       <div class="leaderboard-row">
-        <span class="leaderboard-rank">#${startIndex + index + 1}</span>
+        <span class="leaderboard-rank">#${pagedLeaderboard.startIndex + index + 1}</span>
         <span class="leaderboard-player">${escapeHtml(record.player)}</span>
         <span class="leaderboard-metric">${record.moves}</span>
         <span class="leaderboard-metric">${formatTime(record.time)}</span>
@@ -200,34 +150,34 @@ function renderLeaderboard(records, note) {
 
   leaderboardElement.innerHTML = `
     <div class="leaderboard-row leaderboard-head">
-      <span>Место</span>
+      <span>РњРµСЃС‚Рѕ</span>
       <span>
         <button class="leaderboard-sort" type="button" data-sort-key="player" data-align="left">
-          Игрок
-          <span class="leaderboard-sort-indicator">${getSortIndicator("player")}</span>
+          РРіСЂРѕРє
+          <span class="leaderboard-sort-indicator">${getSortIndicator(leaderboardSort, "player")}</span>
         </button>
       </span>
       <span class="leaderboard-metric">
         <button class="leaderboard-sort" type="button" data-sort-key="moves">
-          Ходы
-          <span class="leaderboard-sort-indicator">${getSortIndicator("moves")}</span>
+          РҐРѕРґС‹
+          <span class="leaderboard-sort-indicator">${getSortIndicator(leaderboardSort, "moves")}</span>
         </button>
       </span>
       <span class="leaderboard-metric">
         <button class="leaderboard-sort" type="button" data-sort-key="time">
-          Время
-          <span class="leaderboard-sort-indicator">${getSortIndicator("time")}</span>
+          Р’СЂРµРјСЏ
+          <span class="leaderboard-sort-indicator">${getSortIndicator(leaderboardSort, "time")}</span>
         </button>
       </span>
     </div>
     ${rows}
   `;
 
-  renderLeaderboardPagination(sortedRecords.length, leaderboardPage, totalPages);
+  renderLeaderboardPagination(sortedRecords.length, leaderboardPage, pagedLeaderboard.totalPages);
 }
 
 function renderPlayerSuggestions(records) {
-  const uniquePlayers = [...new Set(records.map((record) => record.player).filter(Boolean))];
+  const uniquePlayers = getUniquePlayers(records);
 
   playerSuggestionsElement.innerHTML = uniquePlayers
     .map((player) => `<option value="${escapeHtml(player)}"></option>`)
@@ -236,12 +186,12 @@ function renderPlayerSuggestions(records) {
 
 async function loadLeaderboard() {
   if (!firestore) {
-    renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Firebase в файле firebase-config.js.");
+    renderLeaderboard([], "РћРЅР»Р°Р№РЅ-СЂРµР№С‚РёРЅРі РѕС‚РєР»СЋС‡РµРЅ. РџРѕРґРєР»СЋС‡РёС‚Рµ Firebase РІ С„Р°Р№Р»Рµ firebase-config.js.");
     renderPlayerSuggestions([]);
     return;
   }
 
-  renderLeaderboard([], "Загружаю общий рейтинг...");
+  renderLeaderboard([], "Р—Р°РіСЂСѓР¶Р°СЋ РѕР±С‰РёР№ СЂРµР№С‚РёРЅРі...");
 
   try {
     const leaderboardQuery = query(
@@ -266,7 +216,7 @@ async function loadLeaderboard() {
     renderLeaderboard(leaderboardRecords);
     renderPlayerSuggestions(records);
   } catch {
-    renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Firebase и Firestore Rules.");
+    renderLeaderboard([], "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЂРµРєРѕСЂРґС‹. РџСЂРѕРІРµСЂСЊС‚Рµ РЅР°СЃС‚СЂРѕР№РєРё Firebase Рё Firestore Rules.");
     renderPlayerSuggestions([]);
   }
 }
@@ -300,81 +250,17 @@ function getEmptyIndex() {
   return tiles.indexOf(0);
 }
 
-function getRow(index) {
-  return Math.floor(index / size);
-}
-
-function getColumn(index) {
-  return index % size;
-}
-
-function areAdjacent(firstIndex, secondIndex) {
-  const rowDistance = Math.abs(getRow(firstIndex) - getRow(secondIndex));
-  const columnDistance = Math.abs(getColumn(firstIndex) - getColumn(secondIndex));
-  return rowDistance + columnDistance === 1;
-}
-
-function swapTiles(firstIndex, secondIndex) {
-  [tiles[firstIndex], tiles[secondIndex]] = [tiles[secondIndex], tiles[firstIndex]];
-}
-
-function isSolved() {
-  return tiles.every((value, index) => {
-    if (index === tiles.length - 1) {
-      return value === 0;
-    }
-
-    return value === index + 1;
-  });
-}
-
-function countInversions(tileSet) {
-  const numbers = tileSet.filter((value) => value !== 0);
-  let inversions = 0;
-
-  for (let i = 0; i < numbers.length; i += 1) {
-    for (let j = i + 1; j < numbers.length; j += 1) {
-      if (numbers[i] > numbers[j]) {
-        inversions += 1;
-      }
-    }
-  }
-
-  return inversions;
-}
-
-function isSolvable(tileSet) {
-  const inversions = countInversions(tileSet);
-  const emptyRowFromBottom = size - getRow(tileSet.indexOf(0));
-
-  if (size % 2 !== 0) {
-    return inversions % 2 === 0;
-  }
-
-  return (emptyRowFromBottom % 2 === 0) !== (inversions % 2 === 0);
-}
-
 function shuffleTiles() {
-  const shuffled = createSolvedTiles().slice();
+  const shuffled = createSolvedTiles(size).slice();
 
   do {
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const randomIndex = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[i]];
     }
-  } while (!isSolvable(shuffled) || isSolvedArray(shuffled));
+  } while (!isSolvable(shuffled, size) || isSolved(shuffled));
 
   return shuffled;
-}
-
-function isSolvedArray(tileSet) {
-  return tileSet.every((value, index) => {
-    if (index === tileSet.length - 1) {
-      return value === 0;
-    }
-
-    return value === index + 1;
-  });
 }
 
 function startTimer() {
@@ -397,7 +283,7 @@ function stopTimer() {
 
 function startGame() {
   if (!currentPlayer) {
-    setMessage("Введите имя игрока и нажмите «Старт».");
+    setMessage("Р’РІРµРґРёС‚Рµ РёРјСЏ РёРіСЂРѕРєР° Рё РЅР°Р¶РјРёС‚Рµ В«РЎС‚Р°СЂС‚В».");
     playerNameInput.focus();
     return;
   }
@@ -409,12 +295,12 @@ function startGame() {
   stopTimer();
   updateStats();
   renderBoard();
-  setMessage(`Игрок ${currentPlayer}, поле перемешано. Соберите числа от 1 до 15.`);
+  setMessage(`РРіСЂРѕРє ${currentPlayer}, РїРѕР»Рµ РїРµСЂРµРјРµС€Р°РЅРѕ. РЎРѕР±РµСЂРёС‚Рµ С‡РёСЃР»Р° РѕС‚ 1 РґРѕ 15.`);
 }
 
 function highlightMovableTile() {
   const emptyIndex = getEmptyIndex();
-  const movableIndex = tiles.findIndex((value, index) => value !== 0 && areAdjacent(index, emptyIndex));
+  const movableIndex = tiles.findIndex((value, index) => value !== 0 && areAdjacent(index, emptyIndex, size));
 
   if (movableIndex === -1) {
     return;
@@ -428,8 +314,8 @@ function highlightMovableTile() {
 async function handleTileClick(tileIndex) {
   const emptyIndex = getEmptyIndex();
 
-  if (!areAdjacent(tileIndex, emptyIndex)) {
-    setMessage("Можно перемещать только соседнюю с пустой ячейкой плитку.");
+  if (!areAdjacent(tileIndex, emptyIndex, size)) {
+    setMessage("РњРѕР¶РЅРѕ РїРµСЂРµРјРµС‰Р°С‚СЊ С‚РѕР»СЊРєРѕ СЃРѕСЃРµРґРЅСЋСЋ СЃ РїСѓСЃС‚РѕР№ СЏС‡РµР№РєРѕР№ РїР»РёС‚РєСѓ.");
     return;
   }
 
@@ -437,30 +323,30 @@ async function handleTileClick(tileIndex) {
     startTimer();
   }
 
-  swapTiles(tileIndex, emptyIndex);
+  tiles = swapTiles(tiles, tileIndex, emptyIndex);
   moveCount += 1;
   renderBoard();
   updateStats();
 
-  if (isSolved()) {
+  if (isSolved(tiles)) {
     stopTimer();
     const saved = await saveRecord();
     if (saved) {
-      setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Результат добавлен в общий рейтинг.`);
+      setMessage(`РџРѕР±РµРґР°! Р’С‹ СЂРµС€РёР»Рё РіРѕР»РѕРІРѕР»РѕРјРєСѓ Р·Р° ${moveCount} С…РѕРґРѕРІ Рё ${formatTime(secondsElapsed)}. Р РµР·СѓР»СЊС‚Р°С‚ РґРѕР±Р°РІР»РµРЅ РІ РѕР±С‰РёР№ СЂРµР№С‚РёРЅРі.`);
       return;
     }
 
-    setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Но онлайн-рейтинг сейчас недоступен.`);
+    setMessage(`РџРѕР±РµРґР°! Р’С‹ СЂРµС€РёР»Рё РіРѕР»РѕРІРѕР»РѕРјРєСѓ Р·Р° ${moveCount} С…РѕРґРѕРІ Рё ${formatTime(secondsElapsed)}. РќРѕ РѕРЅР»Р°Р№РЅ-СЂРµР№С‚РёРЅРі СЃРµР№С‡Р°СЃ РЅРµРґРѕСЃС‚СѓРїРµРЅ.`);
     return;
   }
 
-  setMessage("Отлично, продолжайте.");
+  setMessage("РћС‚Р»РёС‡РЅРѕ, РїСЂРѕРґРѕР»Р¶Р°Р№С‚Рµ.");
 }
 
 document.addEventListener("keydown", (event) => {
   const emptyIndex = getEmptyIndex();
-  const row = getRow(emptyIndex);
-  const column = getColumn(emptyIndex);
+  const row = getRow(emptyIndex, size);
+  const column = getColumn(emptyIndex, size);
 
   const moves = {
     ArrowUp: row < size - 1 ? emptyIndex + size : null,
@@ -482,12 +368,12 @@ document.addEventListener("keydown", (event) => {
 shuffleButton.addEventListener("click", startGame);
 hintButton.addEventListener("click", () => {
   if (!gameStarted) {
-    setMessage("Сначала начните новую игру.");
+    setMessage("РЎРЅР°С‡Р°Р»Р° РЅР°С‡РЅРёС‚Рµ РЅРѕРІСѓСЋ РёРіСЂСѓ.");
     return;
   }
 
   highlightMovableTile();
-  setMessage("Подсветил одну из доступных плиток.");
+  setMessage("РџРѕРґСЃРІРµС‚РёР» РѕРґРЅСѓ РёР· РґРѕСЃС‚СѓРїРЅС‹С… РїР»РёС‚РѕРє.");
 });
 
 leaderboardElement.addEventListener("click", (event) => {
@@ -521,7 +407,7 @@ leaderboardPaginationElement.addEventListener("click", (event) => {
   }
 
   const action = pageButton.dataset.pageAction;
-  const totalPages = getLeaderboardPageCount(leaderboardRecords);
+  const totalPages = getLeaderboardPageCount(leaderboardRecords, leaderboardPageSize);
 
   if (action === "prev" && leaderboardPage > 1) {
     leaderboardPage -= 1;
@@ -539,7 +425,7 @@ playerForm.addEventListener("submit", (event) => {
 
   const nextPlayer = getPlayerName();
   if (!nextPlayer) {
-    setMessage("Введите имя игрока, чтобы начать.");
+    setMessage("Р’РІРµРґРёС‚Рµ РёРјСЏ РёРіСЂРѕРєР°, С‡С‚РѕР±С‹ РЅР°С‡Р°С‚СЊ.");
     playerNameInput.focus();
     return;
   }
@@ -548,7 +434,7 @@ playerForm.addEventListener("submit", (event) => {
   startGame();
 });
 
-tiles = createSolvedTiles();
+tiles = createSolvedTiles(size);
 renderBoard();
 updateStats();
 loadLeaderboard();
