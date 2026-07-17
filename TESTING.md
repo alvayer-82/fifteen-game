@@ -7,15 +7,17 @@ The goal is to build a practical regression process with good cost/benefit.
 
 ## Principles
 
-We use two testing layers:
+We use these layers:
 
 1. manual smoke testing
-2. automated regression testing
+2. automated unit regression
+3. automated local browser smoke
+4. automated production smoke
 
 Manual smoke tests are required:
 
 - after backend migrations
-- before production releases
+- before major production releases
 - after changes to user-critical flows
 
 Automated tests are required:
@@ -38,19 +40,6 @@ Use this rule:
 - add to automated tests if the behavior is deterministic and likely to regress
 - add to both if the feature is critical and user-facing
 
-## Why We Do Not Automate 100% Immediately
-
-Full automation is a good long-term direction, but forcing 100% automation too early is expensive and slows delivery.
-
-For this project, a realistic strategy is:
-
-- keep a concise manual smoke checklist
-- automate core logic first
-- automate critical UI behavior second
-- automate browser smoke scenarios third
-
-This gives strong protection without overengineering.
-
 ## Current Manual Smoke Checklist
 
 These checks must pass before release.
@@ -65,7 +54,7 @@ These checks must pass before release.
 ### B. Leaderboard Load
 
 - Verify the leaderboard is visible.
-- Verify old migrated records are present.
+- Verify migrated records are present.
 - Verify Cyrillic names display correctly.
 - Verify the leaderboard does not show placeholder error text.
 
@@ -94,7 +83,7 @@ These checks must pass before release.
 
 ### F. Gameplay
 
-- Make several moves with the mouse.
+- Make several moves with the mouse or keyboard.
 - Verify the move counter changes.
 - Verify the timer starts.
 - Verify invalid moves are rejected with a user message.
@@ -130,18 +119,44 @@ A release is allowed only if:
 
 - all required manual smoke checks pass
 - known defects are reviewed and accepted
-- migration-related risks are reviewed if backend/storage changed
-- automated tests are green once they are introduced
+- migration-related risks are reviewed if backend or storage changed
+- automated tests are green
 
-## Future Automation Plan
+## Automated Coverage Today
 
-We will automate in this order:
+### Unit tests
 
-1. unit tests for core game logic
-2. unit tests for leaderboard sorting and pagination
-3. integration tests for UI behavior
-4. browser smoke tests
-5. CI checks in GitHub Actions
+- `tests/game-core.test.js`
+- `tests/leaderboard-core.test.js`
+
+These protect pure logic and are the fastest regression layer.
+
+### Local browser smoke
+
+- `tests/e2e/smoke.spec.js`
+
+This suite runs against a controlled local page with deterministic test data.
+
+### Production smoke
+
+- `tests/e2e/production-smoke.spec.js`
+
+This suite runs against the published GitHub Pages version.
+It is intentionally read-only and must not write synthetic records into Firestore.
+
+## Production Smoke Safety Rules
+
+- do not intentionally finish the game in production tests
+- do not intentionally write synthetic leaderboard records
+- verify only loading, sorting, pagination and safe gameplay actions
+
+## Automation Entry Points
+
+- `npm test` runs unit regression
+- `npm run test:e2e` runs local Playwright smoke
+- `npm run test:e2e:prod` runs read-only production smoke
+- GitHub Actions workflow `CI` runs unit tests and local Playwright smoke
+- GitHub Actions workflow `Production Smoke` runs after successful `CI` on `main`
 
 ## Change Log For Test Coverage
 
@@ -159,7 +174,7 @@ Template:
 
 For this project:
 
-- keep manual smoke testing as a required release step
-- do not rely on manual testing only
-- do not try to automate 100% before basic tooling exists
-- gradually move repeated checks into automation
+- keep manual smoke testing as a release safety net
+- rely primarily on automated checks for repeated regression control
+- keep production smoke read-only
+- add emulator-based backend integration after the current functional E2E layer

@@ -1,18 +1,15 @@
 import { defineConfig } from "@playwright/test";
 
+const productionBaseUrl = process.env.PLAYWRIGHT_BASE_URL || "https://alvayer-82.github.io/fifteen-game/";
+
 export default defineConfig({
   testDir: "./tests/e2e",
-  testIgnore: /production-smoke\.spec\.js/,
+  testMatch: /production-smoke\.spec\.js/,
   timeout: 30_000,
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: productionBaseUrl,
     headless: true,
     trace: "on-first-retry"
-  },
-  webServer: {
-    command: "node scripts/serve-static.js",
-    port: 4173,
-    reuseExistingServer: !process.env.CI
   },
   projects: [
     {
