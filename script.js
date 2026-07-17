@@ -42,11 +42,16 @@ const playerNameInput = document.getElementById("playerName");
 const playerSuggestionsElement = document.getElementById("playerSuggestions");
 const leaderboardElement = document.getElementById("leaderboard");
 const leaderboardPaginationElement = document.getElementById("leaderboardPagination");
+const testConfig = window.__FIFTEEN_GAME_TEST_CONFIG__ ?? null;
+const isTestMode = Boolean(testConfig);
+const testLeaderboardRecords = Array.isArray(testConfig?.leaderboardRecords)
+  ? testConfig.leaderboardRecords
+  : [];
 
 const size = BOARD_SIZE;
 const leaderboardPageSize = LEADERBOARD_PAGE_SIZE;
 const leaderboardCollectionName = "leaderboard_v2";
-const hasFirebaseConfig = Object.values(firebaseConfig).every(
+const hasFirebaseConfig = !isTestMode && Object.values(firebaseConfig).every(
   (value) => typeof value === "string" && value.length > 0 && !value.includes("PASTE_YOUR_FIREBASE_")
 );
 const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
@@ -185,6 +190,19 @@ function renderPlayerSuggestions(records) {
 }
 
 async function loadLeaderboard() {
+  if (isTestMode) {
+    leaderboardRecords = testLeaderboardRecords.map((record) => ({
+      player: String(record.player ?? ""),
+      moves: Number(record.moves ?? 0),
+      time: Number(record.time ?? 0),
+      createdAtMs: Number(record.createdAtMs ?? 0)
+    }));
+    leaderboardPage = 1;
+    renderLeaderboard(leaderboardRecords);
+    renderPlayerSuggestions(leaderboardRecords);
+    return;
+  }
+
   if (!firestore) {
     renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Firebase в файле firebase-config.js.");
     renderPlayerSuggestions([]);
@@ -222,6 +240,10 @@ async function loadLeaderboard() {
 }
 
 async function saveRecord() {
+  if (isTestMode) {
+    return Boolean(testConfig?.saveResult);
+  }
+
   if (!firestore) {
     return false;
   }
@@ -288,7 +310,7 @@ function startGame() {
     return;
   }
 
-  tiles = shuffleTiles();
+  tiles = Array.isArray(testConfig?.fixedTiles) ? testConfig.fixedTiles.slice() : shuffleTiles();
   moveCount = 0;
   secondsElapsed = 0;
   gameStarted = true;
