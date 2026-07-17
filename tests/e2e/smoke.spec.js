@@ -41,12 +41,10 @@ test("renders the page and loads the first leaderboard page", async ({ page }) =
 test("requires a player name before starting", async ({ page }) => {
   await openGame(page);
 
-  const initialMessage = await page.locator("#message").textContent();
-
   await page.click("#playerForm button[type='submit']");
 
   await expect(page.locator("#playerName")).toBeFocused();
-  await expect(page.locator("#message")).not.toHaveText(initialMessage ?? "");
+  await expect(page.locator("#message")).toContainText("Введите имя игрока");
   await expect(page.locator("#moves")).toHaveText("0");
 });
 
@@ -61,6 +59,8 @@ test("starts a new game from player form", async ({ page }) => {
   await expect(page.locator("#board > :nth-child(14)")).toHaveClass(/empty/);
   await expect(page.locator("#moves")).toHaveText("0");
   await expect(page.locator("#timer")).toHaveText("00:00");
+  await expect(page.locator("#message")).toContainText("SmokePlayer");
+  await expect(page.locator("#message")).toContainText("Соберите числа");
 });
 
 test("shows a hint after the game starts", async ({ page }) => {
@@ -71,6 +71,7 @@ test("shows a hint after the game starts", async ({ page }) => {
   await page.click("#hintButton");
 
   await expect(page.locator(".tile-highlight")).toHaveCount(1);
+  await expect(page.locator("#message")).toContainText("Подсветил");
 });
 
 test("supports keyboard movement after the game starts", async ({ page }) => {
@@ -115,6 +116,34 @@ test("moves between leaderboard pages in both directions", async ({ page }) => {
   await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
 });
 
+test("allows choosing a player from existing suggestions", async ({ page }) => {
+  await openGame(page);
+
+  await expect(page.locator("#playerSuggestions option")).toHaveCount(12);
+  await page.fill("#playerName", "Alex");
+  await page.click("#playerForm button[type='submit']");
+
+  await expect(page.locator("#message")).toContainText("Alex");
+});
+
+test("renders an empty leaderboard state", async ({ page }) => {
+  await openGame(page, {
+    leaderboardRecords: []
+  });
+
+  await expect(page.locator(".leaderboard-empty")).toContainText("Пока нет рекордов");
+  await expect(page.locator("#leaderboardPagination")).toBeEmpty();
+});
+
+test("shows a backend error state when leaderboard loading fails", async ({ page }) => {
+  await openGame(page, {
+    loadError: true
+  });
+
+  await expect(page.locator(".leaderboard-empty")).toContainText("Не удалось загрузить рекорды");
+  await expect(page.locator("#playerSuggestions option")).toHaveCount(0);
+});
+
 test("handles a winning move in test mode", async ({ page }) => {
   await openGame(page, {
     fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
@@ -127,5 +156,21 @@ test("handles a winning move in test mode", async ({ page }) => {
 
   await expect(page.locator("#moves")).toHaveText("1");
   await expect(page.locator("#board > :nth-child(16)")).toHaveClass(/empty/);
-  await expect(page.locator("#message")).not.toBeEmpty();
+  await expect(page.locator("#message")).toContainText("Победа");
+  await expect(page.locator("#message")).toContainText("Результат добавлен");
+});
+
+test("shows an unavailable leaderboard message when save fails", async ({ page }) => {
+  await openGame(page, {
+    fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
+    saveResult: false
+  });
+
+  await page.fill("#playerName", "Winner");
+  await page.click("#playerForm button[type='submit']");
+  await page.click("#board .tile:last-of-type");
+
+  await expect(page.locator("#message")).toContainText("Победа");
+  await expect(page.locator("#message")).toContainText("онлайн-рейтинг");
+  await expect(page.locator("#message")).toContainText("недоступен");
 });

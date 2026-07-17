@@ -191,6 +191,12 @@ function renderPlayerSuggestions(records) {
 
 async function loadLeaderboard() {
   if (isTestMode) {
+    if (testConfig?.loadError) {
+      renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Firebase и Firestore Rules.");
+      renderPlayerSuggestions([]);
+      return;
+    }
+
     leaderboardRecords = testLeaderboardRecords.map((record) => ({
       player: String(record.player ?? ""),
       moves: Number(record.moves ?? 0),
