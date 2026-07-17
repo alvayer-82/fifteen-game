@@ -111,10 +111,19 @@ describe("leaderboard-core", () => {
     expect(compareRecords(first, second, { key: "player", direction: "desc" })).toBeGreaterThan(0);
   });
 
+  it("uses fallback comparison when sort key values are equal", () => {
+    const first = { player: "Beta", moves: 50, time: 20 };
+    const second = { player: "Alpha", moves: 50, time: 20 };
+
+    expect(compareRecords(first, second, { key: "moves", direction: "asc" })).toBeGreaterThan(0);
+  });
+
   it("calculates page count", () => {
     expect(getLeaderboardPageCount(records, 10)).toBe(1);
     expect(getLeaderboardPageCount(new Array(21).fill(records[0]), 10)).toBe(3);
     expect(getLeaderboardPageCount([], 10)).toBe(1);
+    expect(getLeaderboardPageCount(records, records.length)).toBe(1);
+    expect(getLeaderboardPageCount(records, 50)).toBe(1);
   });
 
   it("returns paged records with normalized page", () => {
@@ -139,12 +148,16 @@ describe("leaderboard-core", () => {
 
     const pageZero = getPagedLeaderboardRecords(manyRecords, 0, 10);
     const pageTooHigh = getPagedLeaderboardRecords(manyRecords, 99, 10);
+    const exactPageSize = getPagedLeaderboardRecords(records, 1, records.length);
+    const oversizedPageSize = getPagedLeaderboardRecords(records, 1, 50);
     const singleItemPages = getPagedLeaderboardRecords(manyRecords, 3, 1);
 
     expect(pageZero.page).toBe(1);
     expect(pageZero.startIndex).toBe(0);
     expect(pageTooHigh.page).toBe(2);
     expect(pageTooHigh.records).toHaveLength(2);
+    expect(exactPageSize.records).toHaveLength(records.length);
+    expect(oversizedPageSize.records).toHaveLength(records.length);
     expect(singleItemPages.page).toBe(3);
     expect(singleItemPages.records[0].player).toBe("P3");
   });
@@ -160,5 +173,16 @@ describe("leaderboard-core", () => {
     ];
 
     expect(getUniquePlayers(mixedRecords)).toEqual(["Superman", "Maksim"]);
+  });
+
+  it("works with an empty leaderboard collection", () => {
+    expect(getSortedLeaderboardRecords([], { key: "moves", direction: "asc" })).toEqual([]);
+    expect(getPagedLeaderboardRecords([], 1, 10)).toEqual({
+      page: 1,
+      totalPages: 1,
+      startIndex: 0,
+      records: []
+    });
+    expect(getUniquePlayers([])).toEqual([]);
   });
 });
