@@ -81,7 +81,7 @@ function renderBoard() {
     tileButton.className = "tile";
     tileButton.type = "button";
     tileButton.textContent = value;
-    tileButton.setAttribute("aria-label", `РџР»РёС‚РєР° ${value}`);
+    tileButton.setAttribute("aria-label", `Плитка ${value}`);
     tileButton.addEventListener("click", () => handleTileClick(index));
     boardElement.appendChild(tileButton);
   });
@@ -107,14 +107,14 @@ function renderLeaderboardPagination(totalRecords, currentPage, totalPages) {
 
   leaderboardPaginationElement.innerHTML = `
     <span class="leaderboard-page-info">
-      РџРѕРєР°Р·Р°РЅС‹ ${startRecord}-${endRecord} РёР· ${totalRecords}
+      Показаны ${startRecord}-${endRecord} из ${totalRecords}
     </span>
     <div class="leaderboard-page-actions">
       <button class="leaderboard-page-button" type="button" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>
-        РќР°Р·Р°Рґ
+        Назад
       </button>
       <button class="leaderboard-page-button" type="button" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>
-        Р’РїРµСЂС‘Рґ
+        Вперёд
       </button>
     </div>
   `;
@@ -128,7 +128,7 @@ function renderLeaderboard(records, note) {
   }
 
   if (records.length === 0) {
-    leaderboardElement.innerHTML = '<div class="leaderboard-empty">РџРѕРєР° РЅРµС‚ СЂРµРєРѕСЂРґРѕРІ. РЎС‹РіСЂР°Р№С‚Рµ РїРµСЂРІСѓСЋ РїР°СЂС‚РёСЋ.</div>';
+    leaderboardElement.innerHTML = '<div class="leaderboard-empty">Пока нет рекордов. Сыграйте первую партию.</div>';
     leaderboardPaginationElement.innerHTML = "";
     return;
   }
@@ -150,22 +150,22 @@ function renderLeaderboard(records, note) {
 
   leaderboardElement.innerHTML = `
     <div class="leaderboard-row leaderboard-head">
-      <span>РњРµСЃС‚Рѕ</span>
+      <span>Место</span>
       <span>
         <button class="leaderboard-sort" type="button" data-sort-key="player" data-align="left">
-          РРіСЂРѕРє
+          Игрок
           <span class="leaderboard-sort-indicator">${getSortIndicator(leaderboardSort, "player")}</span>
         </button>
       </span>
       <span class="leaderboard-metric">
         <button class="leaderboard-sort" type="button" data-sort-key="moves">
-          РҐРѕРґС‹
+          Ходы
           <span class="leaderboard-sort-indicator">${getSortIndicator(leaderboardSort, "moves")}</span>
         </button>
       </span>
       <span class="leaderboard-metric">
         <button class="leaderboard-sort" type="button" data-sort-key="time">
-          Р’СЂРµРјСЏ
+          Время
           <span class="leaderboard-sort-indicator">${getSortIndicator(leaderboardSort, "time")}</span>
         </button>
       </span>
@@ -186,12 +186,12 @@ function renderPlayerSuggestions(records) {
 
 async function loadLeaderboard() {
   if (!firestore) {
-    renderLeaderboard([], "РћРЅР»Р°Р№РЅ-СЂРµР№С‚РёРЅРі РѕС‚РєР»СЋС‡РµРЅ. РџРѕРґРєР»СЋС‡РёС‚Рµ Firebase РІ С„Р°Р№Р»Рµ firebase-config.js.");
+    renderLeaderboard([], "Онлайн-рейтинг отключен. Подключите Firebase в файле firebase-config.js.");
     renderPlayerSuggestions([]);
     return;
   }
 
-  renderLeaderboard([], "Р—Р°РіСЂСѓР¶Р°СЋ РѕР±С‰РёР№ СЂРµР№С‚РёРЅРі...");
+  renderLeaderboard([], "Загружаю общий рейтинг...");
 
   try {
     const leaderboardQuery = query(
@@ -216,7 +216,7 @@ async function loadLeaderboard() {
     renderLeaderboard(leaderboardRecords);
     renderPlayerSuggestions(records);
   } catch {
-    renderLeaderboard([], "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЂРµРєРѕСЂРґС‹. РџСЂРѕРІРµСЂСЊС‚Рµ РЅР°СЃС‚СЂРѕР№РєРё Firebase Рё Firestore Rules.");
+    renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Firebase и Firestore Rules.");
     renderPlayerSuggestions([]);
   }
 }
@@ -283,7 +283,7 @@ function stopTimer() {
 
 function startGame() {
   if (!currentPlayer) {
-    setMessage("Р’РІРµРґРёС‚Рµ РёРјСЏ РёРіСЂРѕРєР° Рё РЅР°Р¶РјРёС‚Рµ В«РЎС‚Р°СЂС‚В».");
+    setMessage("Введите имя игрока и нажмите «Старт».");
     playerNameInput.focus();
     return;
   }
@@ -295,7 +295,7 @@ function startGame() {
   stopTimer();
   updateStats();
   renderBoard();
-  setMessage(`РРіСЂРѕРє ${currentPlayer}, РїРѕР»Рµ РїРµСЂРµРјРµС€Р°РЅРѕ. РЎРѕР±РµСЂРёС‚Рµ С‡РёСЃР»Р° РѕС‚ 1 РґРѕ 15.`);
+  setMessage(`Игрок ${currentPlayer}, поле перемешано. Соберите числа от 1 до 15.`);
 }
 
 function highlightMovableTile() {
@@ -315,7 +315,7 @@ async function handleTileClick(tileIndex) {
   const emptyIndex = getEmptyIndex();
 
   if (!areAdjacent(tileIndex, emptyIndex, size)) {
-    setMessage("РњРѕР¶РЅРѕ РїРµСЂРµРјРµС‰Р°С‚СЊ С‚РѕР»СЊРєРѕ СЃРѕСЃРµРґРЅСЋСЋ СЃ РїСѓСЃС‚РѕР№ СЏС‡РµР№РєРѕР№ РїР»РёС‚РєСѓ.");
+    setMessage("Можно перемещать только соседнюю с пустой ячейкой плитку.");
     return;
   }
 
@@ -332,15 +332,15 @@ async function handleTileClick(tileIndex) {
     stopTimer();
     const saved = await saveRecord();
     if (saved) {
-      setMessage(`РџРѕР±РµРґР°! Р’С‹ СЂРµС€РёР»Рё РіРѕР»РѕРІРѕР»РѕРјРєСѓ Р·Р° ${moveCount} С…РѕРґРѕРІ Рё ${formatTime(secondsElapsed)}. Р РµР·СѓР»СЊС‚Р°С‚ РґРѕР±Р°РІР»РµРЅ РІ РѕР±С‰РёР№ СЂРµР№С‚РёРЅРі.`);
+      setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Результат добавлен в общий рейтинг.`);
       return;
     }
 
-    setMessage(`РџРѕР±РµРґР°! Р’С‹ СЂРµС€РёР»Рё РіРѕР»РѕРІРѕР»РѕРјРєСѓ Р·Р° ${moveCount} С…РѕРґРѕРІ Рё ${formatTime(secondsElapsed)}. РќРѕ РѕРЅР»Р°Р№РЅ-СЂРµР№С‚РёРЅРі СЃРµР№С‡Р°СЃ РЅРµРґРѕСЃС‚СѓРїРµРЅ.`);
+    setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Но онлайн-рейтинг сейчас недоступен.`);
     return;
   }
 
-  setMessage("РћС‚Р»РёС‡РЅРѕ, РїСЂРѕРґРѕР»Р¶Р°Р№С‚Рµ.");
+  setMessage("Отлично, продолжайте.");
 }
 
 document.addEventListener("keydown", (event) => {
@@ -368,12 +368,12 @@ document.addEventListener("keydown", (event) => {
 shuffleButton.addEventListener("click", startGame);
 hintButton.addEventListener("click", () => {
   if (!gameStarted) {
-    setMessage("РЎРЅР°С‡Р°Р»Р° РЅР°С‡РЅРёС‚Рµ РЅРѕРІСѓСЋ РёРіСЂСѓ.");
+    setMessage("Сначала начните новую игру.");
     return;
   }
 
   highlightMovableTile();
-  setMessage("РџРѕРґСЃРІРµС‚РёР» РѕРґРЅСѓ РёР· РґРѕСЃС‚СѓРїРЅС‹С… РїР»РёС‚РѕРє.");
+  setMessage("Подсветил одну из доступных плиток.");
 });
 
 leaderboardElement.addEventListener("click", (event) => {
@@ -425,7 +425,7 @@ playerForm.addEventListener("submit", (event) => {
 
   const nextPlayer = getPlayerName();
   if (!nextPlayer) {
-    setMessage("Р’РІРµРґРёС‚Рµ РёРјСЏ РёРіСЂРѕРєР°, С‡С‚РѕР±С‹ РЅР°С‡Р°С‚СЊ.");
+    setMessage("Введите имя игрока, чтобы начать.");
     playerNameInput.focus();
     return;
   }
