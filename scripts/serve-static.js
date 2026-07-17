@@ -4,6 +4,7 @@ import { extname, join, normalize } from "node:path";
 
 const port = Number(process.env.PORT || 4173);
 const rootDir = process.cwd();
+const indexFile = join(rootDir, "index.html");
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -14,28 +15,52 @@ const contentTypes = {
   ".svg": "image/svg+xml; charset=utf-8"
 };
 
-function resolvePath(urlPath) {
+function resolvePath(rawUrl = "/") {
+  const urlPath = rawUrl.split("?")[0];
   const safePath = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, "");
-  const filePath = join(rootDir, safePath);
+  const filePath = join(rootDir, safePath === "/" ? "index.html" : safePath);
 
   if (existsSync(filePath) && statSync(filePath).isFile()) {
     return filePath;
   }
 
-  return join(rootDir, "index.html");
+  return indexFile;
 }
 
 const server = createServer((request, response) => {
-  const requestPath = request.url === "/" ? "/index.html" : request.url;
-  const filePath = resolvePath(requestPath);
-  const contentType = contentTypes[extname(filePath)] || "application/octet-stream";
+  try {
+    const filePath = resolvePath(request.url);
+    const contentType = contentTypes[extname(filePath)] || "application/octet-stream";
+    const stream = createReadStream(filePath);
 
-  response.writeHead(200, {
-    "Content-Type": contentType,
-    "Cache-Control": "no-store"
-  });
+    stream.on("error", () => {
+      if (!response.headersSent) {
+        response.writeHead(404, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store"
+        });
+      }
 
-  createReadStream(filePath).pipe(response);
+      response.end("Not found");
+    });
+
+    response.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": "no-store"
+    });
+
+    stream.pipe(response);
+  } catch {
+    response.writeHead(500, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    response.end("Internal server error");
+  }
+});
+
+server.on("clientError", () => {
+  // Ignore bad client sockets during browser shutdowns in tests.
 });
 
 server.listen(port, () => {

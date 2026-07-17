@@ -15,18 +15,21 @@ const leaderboardRecords = [
   { player: "Yana", moves: 100, time: 50, createdAtMs: 12 }
 ];
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript((records) => {
-    window.__FIFTEEN_GAME_TEST_CONFIG__ = {
-      leaderboardRecords: records,
-      fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 14, 15],
-      saveResult: false
-    };
-  }, leaderboardRecords);
-});
+async function openGame(page, overrides = {}) {
+  await page.addInitScript((config) => {
+    window.__FIFTEEN_GAME_TEST_CONFIG__ = config;
+  }, {
+    leaderboardRecords,
+    fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 14, 15],
+    saveResult: false,
+    ...overrides
+  });
+
+  await page.goto("/");
+}
 
 test("renders the page and loads the first leaderboard page", async ({ page }) => {
-  await page.goto("/");
+  await openGame(page);
 
   await expect(page.locator("#board .tile")).toHaveCount(15);
   await expect(page.locator(".leaderboard-rank")).toHaveCount(10);
@@ -35,8 +38,20 @@ test("renders the page and loads the first leaderboard page", async ({ page }) =
   await expect(page.locator("#leaderboardPagination [data-page-action='next']")).toBeVisible();
 });
 
+test("requires a player name before starting", async ({ page }) => {
+  await openGame(page);
+
+  const initialMessage = await page.locator("#message").textContent();
+
+  await page.click("#playerForm button[type='submit']");
+
+  await expect(page.locator("#playerName")).toBeFocused();
+  await expect(page.locator("#message")).not.toHaveText(initialMessage ?? "");
+  await expect(page.locator("#moves")).toHaveText("0");
+});
+
 test("starts a new game from player form", async ({ page }) => {
-  await page.goto("/");
+  await openGame(page);
 
   await expect(page.locator("#board > :nth-child(16)")).toHaveClass(/empty/);
 
@@ -48,21 +63,69 @@ test("starts a new game from player form", async ({ page }) => {
   await expect(page.locator("#timer")).toHaveText("00:00");
 });
 
-test("sorts leaderboard by time when clicking the column", async ({ page }) => {
-  await page.goto("/");
+test("shows a hint after the game starts", async ({ page }) => {
+  await openGame(page);
 
-  await page.click("[data-sort-key='time']");
+  await page.fill("#playerName", "HintPlayer");
+  await page.click("#playerForm button[type='submit']");
+  await page.click("#hintButton");
 
-  const firstRow = page.locator(".leaderboard-row").nth(1);
-  await expect(firstRow.locator(".leaderboard-player")).toHaveText("Alex");
-  await expect(firstRow.locator(".leaderboard-metric").nth(1)).toHaveText("00:26");
+  await expect(page.locator(".tile-highlight")).toHaveCount(1);
 });
 
-test("moves between leaderboard pages", async ({ page }) => {
-  await page.goto("/");
+test("supports keyboard movement after the game starts", async ({ page }) => {
+  await openGame(page);
+
+  await page.fill("#playerName", "KeyboardPlayer");
+  await page.click("#playerForm button[type='submit']");
+  await page.keyboard.press("ArrowRight");
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator("#board > :nth-child(13)")).toHaveClass(/empty/);
+});
+
+test("sorts leaderboard by player, moves and time", async ({ page }) => {
+  await openGame(page);
+
+  await page.click("[data-sort-key='player']");
+  await expect(page.locator(".leaderboard-row").nth(1).locator(".leaderboard-player")).toHaveText("Alex");
+
+  await page.click("[data-sort-key='player']");
+  await expect(page.locator(".leaderboard-row").nth(1).locator(".leaderboard-player")).toHaveText("Zoya");
+
+  await page.click("[data-sort-key='moves']");
+  await expect(page.locator(".leaderboard-row").nth(1).locator(".leaderboard-player")).toHaveText("Alex");
+
+  await page.click("[data-sort-key='moves']");
+  await expect(page.locator(".leaderboard-row").nth(1).locator(".leaderboard-player")).toHaveText("Yana");
+
+  await page.click("[data-sort-key='time']");
+  await expect(page.locator(".leaderboard-row").nth(1).locator(".leaderboard-player")).toHaveText("Alex");
+});
+
+test("moves between leaderboard pages in both directions", async ({ page }) => {
+  await openGame(page);
 
   await page.click("#leaderboardPagination [data-page-action='next']");
-
   await expect(page.locator(".leaderboard-rank").first()).toHaveText("#11");
   await expect(page.locator(".leaderboard-player").first()).toHaveText("Boris");
+
+  await page.click("#leaderboardPagination [data-page-action='prev']");
+  await expect(page.locator(".leaderboard-rank").first()).toHaveText("#1");
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
+});
+
+test("handles a winning move in test mode", async ({ page }) => {
+  await openGame(page, {
+    fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
+    saveResult: true
+  });
+
+  await page.fill("#playerName", "Winner");
+  await page.click("#playerForm button[type='submit']");
+  await page.click("#board .tile:last-of-type");
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator("#board > :nth-child(16)")).toHaveClass(/empty/);
+  await expect(page.locator("#message")).not.toBeEmpty();
 });
