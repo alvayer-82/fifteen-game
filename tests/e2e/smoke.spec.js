@@ -53,6 +53,7 @@ test("renders the page and loads the first leaderboard page", async ({ page }) =
   await expect(page.locator("#leaderboardPagination [data-page-action='next']")).toBeVisible();
   await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeVisible();
   await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeEnabled();
+  await expect(page.locator("#leaderboardSearch")).toBeVisible();
 });
 
 test("requires a player name before starting", async ({ page }) => {
@@ -148,6 +149,48 @@ test("disables all pagination buttons when only one leaderboard page exists", as
   await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeDisabled();
 });
 
+test("filters leaderboard by player name and supports sorting on filtered results", async ({ page }) => {
+  await openGame(page);
+
+  await page.fill("#leaderboardSearch", "a");
+  await expect(page.locator(".leaderboard-row")).toHaveCount(11);
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
+
+  await page.click("[data-sort-key='moves']");
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("Stepan");
+
+  await page.click("[data-sort-key='time']");
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
+});
+
+test("applies pagination to filtered results and resets to the first page on query change", async ({ page }) => {
+  await openGame(page);
+
+  await page.click("#leaderboardPagination [data-page-action='last']");
+  await expect(page.locator(".leaderboard-rank").first()).toHaveText("#21");
+
+  await page.fill("#leaderboardSearch", "Alex");
+  await expect(page.locator(".leaderboard-rank").first()).toHaveText("#1");
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
+  await expect(page.locator("#leaderboardPagination [data-page-action='first']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='prev']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='next']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeDisabled();
+});
+
+test("shows a clear empty state when no players match the search query", async ({ page }) => {
+  await openGame(page);
+
+  await page.fill("#leaderboardSearch", "Batman");
+
+  await expect(page.locator(".leaderboard-empty")).toContainText("Записи не найдены");
+  await expect(page.locator("#leaderboardPagination")).toBeEmpty();
+
+  await page.fill("#leaderboardSearch", "");
+  await expect(page.locator(".leaderboard-rank").first()).toHaveText("#1");
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
+});
+
 test("allows choosing a player from existing suggestions", async ({ page }) => {
   await openGame(page);
 
@@ -162,6 +205,17 @@ test("renders an empty leaderboard state", async ({ page }) => {
   await openGame(page, {
     leaderboardRecords: []
   });
+
+  await expect(page.locator(".leaderboard-empty")).toContainText("Пока нет рекордов");
+  await expect(page.locator("#leaderboardPagination")).toBeEmpty();
+});
+
+test("keeps the base empty leaderboard state when search is used on an empty dataset", async ({ page }) => {
+  await openGame(page, {
+    leaderboardRecords: []
+  });
+
+  await page.fill("#leaderboardSearch", "Alex");
 
   await expect(page.locator(".leaderboard-empty")).toContainText("Пока нет рекордов");
   await expect(page.locator("#leaderboardPagination")).toBeEmpty();

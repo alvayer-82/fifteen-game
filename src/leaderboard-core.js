@@ -74,3 +74,13 @@ export function getPagedLeaderboardRecords(records, page, pageSize = LEADERBOARD
 export function getUniquePlayers(records) {
   return [...new Set(records.map((record) => record.player).filter(Boolean))];
 }
+
+export function getFilteredLeaderboardRecords(records, searchQuery) {
+  const normalizedQuery = String(searchQuery ?? "").trim().toLocaleLowerCase("ru");
+
+  if (!normalizedQuery) {
+    return records.slice();
+  }
+
+  return records.filter((record) => record.player.toLocaleLowerCase("ru").includes(normalizedQuery));
+}
