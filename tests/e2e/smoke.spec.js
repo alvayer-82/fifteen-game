@@ -187,6 +187,61 @@ test("does not allow duplicate result saving after victory", async ({ page }) =>
   await expect(firstDataRow.locator(".leaderboard-metric").first()).toHaveText("1");
 });
 
+test("can start and finish a new game after a winning game", async ({ page }) => {
+  await openGame(page, {
+    fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
+    saveResult: true,
+    persistSavedRecord: true,
+    savedRecordCreatedAtMs: 999998
+  });
+
+  await page.fill("#playerName", "ReplayWinner");
+  await page.click("#playerForm button[type='submit']");
+  await page.click("#board .tile:last-of-type");
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator("#message")).toContainText("Победа");
+
+  await page.click("#shuffleButton");
+
+  await expect(page.locator("#moves")).toHaveText("0");
+  await expect(page.locator("#timer")).toHaveText("00:00");
+  await expect(page.locator("#message")).toContainText("ReplayWinner");
+  await expect(page.locator("#message")).toContainText("Соберите числа");
+
+  await page.click("#board .tile:last-of-type");
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator("#message")).toContainText("Победа");
+});
+
+test("does not allow keyboard moves after victory", async ({ page }) => {
+  await openGame(page, {
+    fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
+    saveResult: true,
+    persistSavedRecord: true,
+    savedRecordCreatedAtMs: 999997
+  });
+
+  await page.fill("#playerName", "KeyboardWinner");
+  await page.click("#playerForm button[type='submit']");
+  await page.click("#board .tile:last-of-type");
+
+  const firstDataRow = page.locator(".leaderboard-row").nth(1);
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator(".leaderboard-row")).toHaveCount(11);
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("KeyboardWinner");
+  await expect(firstDataRow.locator(".leaderboard-metric").first()).toHaveText("1");
+
+  await page.keyboard.press("ArrowLeft");
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator(".leaderboard-row")).toHaveCount(11);
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("KeyboardWinner");
+  await expect(firstDataRow.locator(".leaderboard-metric").first()).toHaveText("1");
+});
+
 test("shows an unavailable leaderboard message when save fails", async ({ page }) => {
   await openGame(page, {
     fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
