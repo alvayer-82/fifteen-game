@@ -6,6 +6,19 @@ export function createSolvedTiles(size = BOARD_SIZE) {
   );
 }
 
+export function shuffleTiles(size = BOARD_SIZE, random = Math.random) {
+  const shuffled = createSolvedTiles(size).slice();
+
+  do {
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const randomIndex = Math.floor(random() * (i + 1));
+      [shuffled[i], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[i]];
+    }
+  } while (!isSolvable(shuffled, size) || isSolved(shuffled));
+
+  return shuffled;
+}
+
 export function formatTime(totalSeconds) {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const seconds = String(totalSeconds % 60).padStart(2, "0");

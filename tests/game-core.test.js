@@ -8,6 +8,7 @@ import {
   getRow,
   isSolved,
   isSolvable,
+  shuffleTiles,
   swapTiles
 } from "../src/game-core.js";
 
@@ -71,6 +72,44 @@ describe("game-core", () => {
     expect(isSolvable([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 14, 0])).toBe(false);
     expect(isSolvable(createSolvedTiles(3), 3)).toBe(true);
     expect(isSolvable([1, 2, 3, 4, 5, 6, 8, 7, 0], 3)).toBe(false);
+  });
+
+  it("shuffles tiles into a solvable non-solved board", () => {
+    const shuffled = shuffleTiles();
+
+    expect(shuffled).toHaveLength(16);
+    expect(isSolvable(shuffled)).toBe(true);
+    expect(isSolved(shuffled)).toBe(false);
+    expect([...shuffled].sort((a, b) => a - b)).toEqual([...createSolvedTiles()].sort((a, b) => a - b));
+  });
+
+  it("shuffles tiles correctly for 3x3 boards", () => {
+    const shuffled = shuffleTiles(3, () => 0);
+
+    expect(shuffled).toHaveLength(9);
+    expect(isSolvable(shuffled, 3)).toBe(true);
+    expect(isSolved(shuffled)).toBe(false);
+    expect([...shuffled].sort((a, b) => a - b)).toEqual([...createSolvedTiles(3)].sort((a, b) => a - b));
+  });
+
+  it("retries shuffling when the first permutation stays solved", () => {
+    const keepIndexSequence = Array.from({ length: 15 }, (_, index) => {
+      const i = 15 - index;
+      return i / (i + 1);
+    });
+    const fallbackSequence = Array.from({ length: 15 }, () => 0);
+    const randomValues = [...keepIndexSequence, ...fallbackSequence];
+    let callIndex = 0;
+
+    const shuffled = shuffleTiles(4, () => {
+      const value = randomValues[callIndex] ?? 0;
+      callIndex += 1;
+      return value;
+    });
+
+    expect(callIndex).toBeGreaterThan(15);
+    expect(isSolved(shuffled)).toBe(false);
+    expect(isSolvable(shuffled)).toBe(true);
   });
 
   it("uses empty row position for even-sized solvability checks", () => {
