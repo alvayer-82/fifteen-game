@@ -115,15 +115,23 @@ function renderLeaderboardPagination(totalRecords, currentPage, totalPages) {
   const endRecord = Math.min(totalRecords, currentPage * leaderboardPageSize);
 
   leaderboardPaginationElement.innerHTML = `
+    <div class="leaderboard-page-actions">
+      <button class="leaderboard-page-button" type="button" data-page-action="first" ${currentPage === 1 ? "disabled" : ""}>
+        Первая
+      </button>
+      <button class="leaderboard-page-button" type="button" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>
+        Назад
+      </button>
+    </div>
     <span class="leaderboard-page-info">
       Показаны ${startRecord}-${endRecord} из ${totalRecords}
     </span>
     <div class="leaderboard-page-actions">
-      <button class="leaderboard-page-button" type="button" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>
-        Назад
-      </button>
       <button class="leaderboard-page-button" type="button" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>
         Вперёд
+      </button>
+      <button class="leaderboard-page-button" type="button" data-page-action="last" ${currentPage === totalPages ? "disabled" : ""}>
+        Последняя
       </button>
     </div>
   `;
@@ -452,15 +460,18 @@ leaderboardPaginationElement.addEventListener("click", (event) => {
 
   const action = pageButton.dataset.pageAction;
   const totalPages = getLeaderboardPageCount(leaderboardRecords, leaderboardPageSize);
+  const nextPage = {
+    first: 1,
+    prev: Math.max(1, leaderboardPage - 1),
+    next: Math.min(totalPages, leaderboardPage + 1),
+    last: totalPages
+  }[action];
 
-  if (action === "prev" && leaderboardPage > 1) {
-    leaderboardPage -= 1;
+  if (nextPage === undefined || nextPage === leaderboardPage) {
+    return;
   }
 
-  if (action === "next" && leaderboardPage < totalPages) {
-    leaderboardPage += 1;
-  }
-
+  leaderboardPage = nextPage;
   renderLeaderboard(leaderboardRecords);
 });
 

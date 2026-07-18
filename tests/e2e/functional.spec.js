@@ -72,7 +72,7 @@ test.describe("functional e2e", () => {
     await page.click("[data-sort-key='player']");
     await expect(page.locator(".leaderboard-row").nth(1).locator(".leaderboard-player")).toHaveText("Zoya");
 
-    await page.click("#leaderboardPagination [data-page-action='next']");
+    await page.click("#leaderboardPagination [data-page-action='last']");
     await expect(page.locator(".leaderboard-rank").first()).toHaveText("#11");
     await expect(page.locator(".leaderboard-player").first()).toHaveText("Boris");
 

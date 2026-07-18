@@ -35,7 +35,11 @@ test("renders the page and loads the first leaderboard page", async ({ page }) =
   await expect(page.locator(".leaderboard-rank")).toHaveCount(10);
   await expect(page.locator(".leaderboard-rank").first()).toHaveText("#1");
   await expect(page.locator(".leaderboard-rank").last()).toHaveText("#10");
+  await expect(page.locator("#leaderboardPagination [data-page-action='first']")).toBeVisible();
+  await expect(page.locator("#leaderboardPagination [data-page-action='prev']")).toBeDisabled();
   await expect(page.locator("#leaderboardPagination [data-page-action='next']")).toBeVisible();
+  await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeVisible();
+  await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeEnabled();
 });
 
 test("requires a player name before starting", async ({ page }) => {
@@ -107,13 +111,28 @@ test("sorts leaderboard by player, moves and time", async ({ page }) => {
 test("moves between leaderboard pages in both directions", async ({ page }) => {
   await openGame(page);
 
-  await page.click("#leaderboardPagination [data-page-action='next']");
+  await page.click("#leaderboardPagination [data-page-action='last']");
   await expect(page.locator(".leaderboard-rank").first()).toHaveText("#11");
   await expect(page.locator(".leaderboard-player").first()).toHaveText("Boris");
+  await expect(page.locator("#leaderboardPagination [data-page-action='next']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeDisabled();
 
-  await page.click("#leaderboardPagination [data-page-action='prev']");
+  await page.click("#leaderboardPagination [data-page-action='first']");
   await expect(page.locator(".leaderboard-rank").first()).toHaveText("#1");
   await expect(page.locator(".leaderboard-player").first()).toHaveText("Alex");
+  await expect(page.locator("#leaderboardPagination [data-page-action='first']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='prev']")).toBeDisabled();
+});
+
+test("disables all pagination buttons when only one leaderboard page exists", async ({ page }) => {
+  await openGame(page, {
+    leaderboardRecords: leaderboardRecords.slice(0, 10)
+  });
+
+  await expect(page.locator("#leaderboardPagination [data-page-action='first']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='prev']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='next']")).toBeDisabled();
+  await expect(page.locator("#leaderboardPagination [data-page-action='last']")).toBeDisabled();
 });
 
 test("allows choosing a player from existing suggestions", async ({ page }) => {
