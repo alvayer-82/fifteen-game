@@ -13,7 +13,8 @@ We use these layers:
 2. automated unit regression
 3. automated Firebase integration testing
 4. automated local browser smoke
-5. automated production smoke
+5. automated functional end-to-end browser testing
+6. automated production smoke
 
 Manual smoke tests are required:
 
@@ -153,6 +154,18 @@ This suite runs against Firestore Emulator and verifies:
 
 This suite runs against a controlled local page with deterministic test data.
 
+### Functional end-to-end browser tests
+
+- `tests/e2e/functional.spec.js`
+
+This suite runs against a controlled local page and verifies full user scenarios:
+
+- enter player name and start a session
+- make a sequence of moves and verify UI updates
+- choose an existing player from suggestions
+- combine sorting and pagination in one session
+- verify a saved result appears in the leaderboard in controlled test mode
+
 ### Production smoke
 
 - `tests/e2e/production-smoke.spec.js`
@@ -170,7 +183,7 @@ It is intentionally read-only and must not write synthetic records into Firestor
 
 - `npm test` runs unit regression
 - `npm run test:integration` runs Firestore Emulator integration tests
-- `npm run test:e2e` runs local Playwright smoke
+- `npm run test:e2e` runs local Playwright smoke and functional end-to-end tests
 - `npm run test:e2e:prod` runs read-only production smoke
 - GitHub Actions workflow `CI` runs unit tests, Firebase integration and local Playwright smoke
 - GitHub Actions workflow `Production Smoke` runs after successful `CI` on `main`
