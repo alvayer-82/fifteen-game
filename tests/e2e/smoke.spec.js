@@ -234,7 +234,7 @@ test("does not allow keyboard moves after victory", async ({ page }) => {
   await expect(page.locator(".leaderboard-player").first()).toHaveText("KeyboardWinner");
   await expect(firstDataRow.locator(".leaderboard-metric").first()).toHaveText("1");
 
-  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
 
   await expect(page.locator("#moves")).toHaveText("1");
   await expect(page.locator(".leaderboard-row")).toHaveCount(11);
