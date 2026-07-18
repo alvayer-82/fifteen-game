@@ -210,6 +210,17 @@ test("renders an empty leaderboard state", async ({ page }) => {
   await expect(page.locator("#leaderboardPagination")).toBeEmpty();
 });
 
+test("keeps the base empty leaderboard state when search is used on an empty dataset", async ({ page }) => {
+  await openGame(page, {
+    leaderboardRecords: []
+  });
+
+  await page.fill("#leaderboardSearch", "Alex");
+
+  await expect(page.locator(".leaderboard-empty")).toContainText("Пока нет рекордов");
+  await expect(page.locator("#leaderboardPagination")).toBeEmpty();
+});
+
 test("shows a backend error state when leaderboard loading fails", async ({ page }) => {
   await openGame(page, {
     loadError: true

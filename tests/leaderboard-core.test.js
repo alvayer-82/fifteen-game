@@ -191,6 +191,17 @@ describe("leaderboard-core", () => {
     expect(getFilteredLeaderboardRecords(records, "Batman")).toEqual([]);
   });
 
+  it("filters cyrillic player names case-insensitively", () => {
+    const cyrillicRecords = [
+      { player: "Супермен", moves: 66, time: 26 },
+      { player: "Соломиша", moves: 74, time: 47 },
+      { player: "Maksim", moves: 92, time: 45 }
+    ];
+
+    expect(getFilteredLeaderboardRecords(cyrillicRecords, "супер").map((record) => record.player)).toEqual(["Супермен"]);
+    expect(getFilteredLeaderboardRecords(cyrillicRecords, "СОЛО").map((record) => record.player)).toEqual(["Соломиша"]);
+  });
+
   it("works with an empty leaderboard collection", () => {
     expect(getSortedLeaderboardRecords([], { key: "moves", direction: "asc" })).toEqual([]);
     expect(getFilteredLeaderboardRecords([], "Alex")).toEqual([]);
