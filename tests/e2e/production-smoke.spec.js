@@ -70,19 +70,27 @@ test.describe("production smoke", () => {
     await openProductionApp(page);
 
     const nextButton = page.locator("#leaderboardPagination [data-page-action='next']");
+    const firstButton = page.locator("#leaderboardPagination [data-page-action='first']");
+    const lastButton = page.locator("#leaderboardPagination [data-page-action='last']");
     await expect(nextButton).toBeVisible({ timeout: 15_000 });
+    await expect(firstButton).toBeVisible({ timeout: 15_000 });
+    await expect(lastButton).toBeVisible({ timeout: 15_000 });
 
     if (await nextButton.isDisabled()) {
       test.skip(true, "Production leaderboard currently has only one page of records.");
     }
 
     const firstRankBefore = await page.locator(".leaderboard-rank").first().textContent();
-    await nextButton.click();
+    await lastButton.click();
     await expect(page.locator(".leaderboard-rank").first()).not.toHaveText(firstRankBefore ?? "");
+    await expect(nextButton).toBeDisabled();
+    await expect(lastButton).toBeDisabled();
 
     const prevButton = page.locator("#leaderboardPagination [data-page-action='prev']");
-    await prevButton.click();
+    await firstButton.click();
     await expect(page.locator(".leaderboard-rank").first()).toHaveText(firstRankBefore ?? "#1");
+    await expect(prevButton).toBeDisabled();
+    await expect(firstButton).toBeDisabled();
   });
 
   test("starts a production game and allows a safe real move without saving a score", async ({ page }) => {
