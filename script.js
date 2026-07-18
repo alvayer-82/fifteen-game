@@ -31,11 +31,9 @@ import {
   LEADERBOARD_PAGE_SIZE
 } from "./src/leaderboard-core.js";
 import {
-  createLeaderboardRecordPayload,
-  LEADERBOARD_COLLECTION_NAME,
-  LEADERBOARD_FETCH_LIMIT,
-  mapStoredLeaderboardRecord
-} from "./src/leaderboard-storage-core.js";
+  fetchLeaderboardRecords,
+  saveLeaderboardRecord
+} from "./src/leaderboard-service.js";
 
 const boardElement = document.getElementById("board");
 const movesElement = document.getElementById("moves");
@@ -223,19 +221,25 @@ async function loadLeaderboard() {
   renderLeaderboard([], "Загружаю общий рейтинг...");
 
   try {
-    const leaderboardQuery = query(
-      collection(firestore, LEADERBOARD_COLLECTION_NAME),
-      orderBy("createdAtMs", "desc"),
-      limit(LEADERBOARD_FETCH_LIMIT)
-    );
-    const snapshot = await getDocs(leaderboardQuery);
+    const result = await fetchLeaderboardRecords({
+      firestore,
+      firebaseApi: {
+        collection,
+        getDocs,
+        limit,
+        orderBy,
+        query
+      }
+    });
 
-    const records = snapshot.docs.map((documentSnapshot) => mapStoredLeaderboardRecord(documentSnapshot.data()));
+    if (!result.success) {
+      throw new Error(result.code);
+    }
 
-    leaderboardRecords = records;
+    leaderboardRecords = result.records;
     leaderboardPage = 1;
     renderLeaderboard(leaderboardRecords);
-    renderPlayerSuggestions(records);
+    renderPlayerSuggestions(result.records);
   } catch {
     renderLeaderboard([], "Не удалось загрузить рекорды. Проверьте настройки Firebase и Firestore Rules.");
     renderPlayerSuggestions([]);
@@ -251,16 +255,19 @@ async function saveRecord() {
     return false;
   }
 
-  try {
-    await addDoc(collection(firestore, LEADERBOARD_COLLECTION_NAME), {
-      ...createLeaderboardRecordPayload({
-        player: currentPlayer,
-        moves: moveCount,
-        timeSeconds: secondsElapsed
-      }),
-      createdAt: serverTimestamp()
-    });
-  } catch {
+  const result = await saveLeaderboardRecord({
+    firestore,
+    player: currentPlayer,
+    moves: moveCount,
+    timeSeconds: secondsElapsed,
+    firebaseApi: {
+      addDoc,
+      collection,
+      serverTimestamp
+    }
+  });
+
+  if (!result.success) {
     return false;
   }
 
