@@ -71,6 +71,14 @@ async function saveLeaderboardRecord(db, payload, nowMs = Date.now()) {
   });
 }
 
+async function seedSingleLeaderboardRecord(record, documentId = "seed-1", environment = testEnv) {
+  await environment.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection(LEADERBOARD_COLLECTION_NAME).doc(documentId).set(record);
+  });
+
+  return documentId;
+}
+
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: "demo-fifteen-game",
@@ -183,6 +191,40 @@ describe("Firestore emulator integration", () => {
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         createdAtMs: 1
       })
+    );
+  });
+
+  it("denies updating an existing leaderboard record", async () => {
+    const documentId = await seedSingleLeaderboardRecord({
+      player: "Alex",
+      moves: 66,
+      timeSeconds: 26,
+      createdAtMs: 123456
+    });
+
+    await assertFails(
+      getGuestDb()
+        .collection(LEADERBOARD_COLLECTION_NAME)
+        .doc(documentId)
+        .update({
+          moves: 67
+        })
+    );
+  });
+
+  it("denies deleting an existing leaderboard record", async () => {
+    const documentId = await seedSingleLeaderboardRecord({
+      player: "Alex",
+      moves: 66,
+      timeSeconds: 26,
+      createdAtMs: 123456
+    });
+
+    await assertFails(
+      getGuestDb()
+        .collection(LEADERBOARD_COLLECTION_NAME)
+        .doc(documentId)
+        .delete()
     );
   });
 
