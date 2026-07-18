@@ -248,7 +248,23 @@ async function loadLeaderboard() {
 
 async function saveRecord() {
   if (isTestMode) {
-    return Boolean(testConfig?.saveResult);
+    const saved = Boolean(testConfig?.saveResult);
+
+    if (saved && testConfig?.persistSavedRecord) {
+      const savedRecord = {
+        player: currentPlayer,
+        moves: moveCount,
+        time: secondsElapsed,
+        createdAtMs: Number(testConfig?.savedRecordCreatedAtMs ?? Date.now())
+      };
+
+      leaderboardRecords = [savedRecord, ...leaderboardRecords];
+      leaderboardPage = 1;
+      renderLeaderboard(leaderboardRecords);
+      renderPlayerSuggestions(leaderboardRecords);
+    }
+
+    return saved;
   }
 
   if (!firestore) {
