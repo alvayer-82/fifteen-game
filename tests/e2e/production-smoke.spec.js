@@ -4,6 +4,29 @@ async function openProductionApp(page) {
   await page.goto("./");
 }
 
+async function clickAnyMovableTile(page) {
+  const movableTileIndex = await page.locator("#board").evaluate((boardElement) => {
+    const cells = Array.from(boardElement.children);
+    const boardSize = Math.sqrt(cells.length);
+    const emptyIndex = cells.findIndex((cell) => cell.classList.contains("empty"));
+
+    return cells.findIndex((cell, index) => {
+      if (cell.classList.contains("empty")) {
+        return false;
+      }
+
+      const row = Math.floor(index / boardSize);
+      const column = index % boardSize;
+      const emptyRow = Math.floor(emptyIndex / boardSize);
+      const emptyColumn = emptyIndex % boardSize;
+
+      return Math.abs(row - emptyRow) + Math.abs(column - emptyColumn) === 1;
+    });
+  });
+
+  await page.locator("#board > *").nth(movableTileIndex).click();
+}
+
 test.describe("production smoke", () => {
   test("loads the published application shell", async ({ page }) => {
     await openProductionApp(page);
@@ -62,14 +85,14 @@ test.describe("production smoke", () => {
     await expect(page.locator(".leaderboard-rank").first()).toHaveText(firstRankBefore ?? "#1");
   });
 
-  test("starts a production game and allows a real move without saving a score", async ({ page }) => {
+  test("starts a production game and allows a safe real move without saving a score", async ({ page }) => {
     await openProductionApp(page);
 
     await page.fill("#playerName", "ProductionSmoke");
     await page.click("#playerForm button[type='submit']");
 
     const movesBefore = await page.locator("#moves").textContent();
-    await page.keyboard.press("ArrowRight");
+    await clickAnyMovableTile(page);
     const movesAfter = await page.locator("#moves").textContent();
 
     expect(movesBefore).toBe("0");

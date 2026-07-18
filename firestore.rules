@@ -2,7 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /leaderboard/{documentId} {
+    match /leaderboard_v2/{documentId} {
       allow read: if true;
       allow create: if
         request.resource.data.keys().hasOnly(["player", "moves", "timeSeconds", "createdAt", "createdAtMs"]) &&

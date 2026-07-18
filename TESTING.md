@@ -11,8 +11,9 @@ We use these layers:
 
 1. manual smoke testing
 2. automated unit regression
-3. automated local browser smoke
-4. automated production smoke
+3. automated Firebase integration testing
+4. automated local browser smoke
+5. automated production smoke
 
 Manual smoke tests are required:
 
@@ -128,8 +129,23 @@ A release is allowed only if:
 
 - `tests/game-core.test.js`
 - `tests/leaderboard-core.test.js`
+- `tests/leaderboard-storage-core.test.js`
 
-These protect pure logic and are the fastest regression layer.
+These protect pure logic and shared data transformation.
+
+### Firebase integration tests
+
+- `tests/integration/firestore-emulator.test.js`
+
+This suite runs against Firestore Emulator and verifies:
+
+- leaderboard read works
+- leaderboard write works
+- Firestore document mapping matches UI expectations
+- denied reads are handled by rules
+- invalid writes are rejected by rules
+- loaded data supports sorting and pagination
+- empty database returns an empty leaderboard
 
 ### Local browser smoke
 
@@ -153,22 +169,11 @@ It is intentionally read-only and must not write synthetic records into Firestor
 ## Automation Entry Points
 
 - `npm test` runs unit regression
+- `npm run test:integration` runs Firestore Emulator integration tests
 - `npm run test:e2e` runs local Playwright smoke
 - `npm run test:e2e:prod` runs read-only production smoke
-- GitHub Actions workflow `CI` runs unit tests and local Playwright smoke
+- GitHub Actions workflow `CI` runs unit tests, Firebase integration and local Playwright smoke
 - GitHub Actions workflow `Production Smoke` runs after successful `CI` on `main`
-
-## Change Log For Test Coverage
-
-Whenever a feature is added, update this section.
-
-Template:
-
-- Feature:
-- Release:
-- Manual smoke added:
-- Automated tests added:
-- Notes:
 
 ## Current Recommendation
 
@@ -177,4 +182,4 @@ For this project:
 - keep manual smoke testing as a release safety net
 - rely primarily on automated checks for repeated regression control
 - keep production smoke read-only
-- add emulator-based backend integration after the current functional E2E layer
+- use Firebase Emulator as the main backend integration contour

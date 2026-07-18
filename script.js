@@ -30,6 +30,12 @@ import {
   getUniquePlayers,
   LEADERBOARD_PAGE_SIZE
 } from "./src/leaderboard-core.js";
+import {
+  createLeaderboardRecordPayload,
+  LEADERBOARD_COLLECTION_NAME,
+  LEADERBOARD_FETCH_LIMIT,
+  mapStoredLeaderboardRecord
+} from "./src/leaderboard-storage-core.js";
 
 const boardElement = document.getElementById("board");
 const movesElement = document.getElementById("moves");
@@ -50,7 +56,6 @@ const testLeaderboardRecords = Array.isArray(testConfig?.leaderboardRecords)
 
 const size = BOARD_SIZE;
 const leaderboardPageSize = LEADERBOARD_PAGE_SIZE;
-const leaderboardCollectionName = "leaderboard_v2";
 const hasFirebaseConfig = !isTestMode && Object.values(firebaseConfig).every(
   (value) => typeof value === "string" && value.length > 0 && !value.includes("PASTE_YOUR_FIREBASE_")
 );
@@ -219,21 +224,13 @@ async function loadLeaderboard() {
 
   try {
     const leaderboardQuery = query(
-      collection(firestore, leaderboardCollectionName),
+      collection(firestore, LEADERBOARD_COLLECTION_NAME),
       orderBy("createdAtMs", "desc"),
-      limit(100)
+      limit(LEADERBOARD_FETCH_LIMIT)
     );
     const snapshot = await getDocs(leaderboardQuery);
 
-    const records = snapshot.docs.map((documentSnapshot) => {
-      const data = documentSnapshot.data();
-      return {
-        player: data.player,
-        moves: data.moves,
-        time: data.timeSeconds,
-        createdAtMs: data.createdAtMs ?? 0
-      };
-    });
+    const records = snapshot.docs.map((documentSnapshot) => mapStoredLeaderboardRecord(documentSnapshot.data()));
 
     leaderboardRecords = records;
     leaderboardPage = 1;
@@ -255,12 +252,13 @@ async function saveRecord() {
   }
 
   try {
-    await addDoc(collection(firestore, leaderboardCollectionName), {
-      player: currentPlayer,
-      moves: moveCount,
-      timeSeconds: secondsElapsed,
-      createdAt: serverTimestamp(),
-      createdAtMs: Date.now()
+    await addDoc(collection(firestore, LEADERBOARD_COLLECTION_NAME), {
+      ...createLeaderboardRecordPayload({
+        player: currentPlayer,
+        moves: moveCount,
+        timeSeconds: secondsElapsed
+      }),
+      createdAt: serverTimestamp()
     });
   } catch {
     return false;
