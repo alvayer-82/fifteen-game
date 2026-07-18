@@ -6,73 +6,74 @@
 
 ## Summary
 
-- В таблицу результатов добавлены две новые кнопки пагинации:
+- Added two new pagination buttons to the leaderboard:
   - `Первая`
   - `Последняя`
-- Теперь пользователь может одним нажатием перейти к первой или последней странице leaderboard.
-- Существующая логика пагинации не дублировалась: UI использует уже существующие `leaderboardPage` и `getLeaderboardPageCount`.
+- A player can now jump to the first or last leaderboard page in one click.
+- The implementation reuses the existing pagination state and page-count logic instead of duplicating it.
 
 ## Required behavior covered
 
-- `Первая` переводит на первую страницу.
-- `Последняя` переводит на последнюю страницу.
-- На первой странице `Первая` и `Назад` отключены.
-- На последней странице `Вперёд` и `Последняя` отключены.
-- При одной странице все четыре кнопки отключены.
+- `Первая` opens the first leaderboard page.
+- `Последняя` opens the last leaderboard page.
+- On the first page, `Первая` and `Назад` are disabled.
+- On the last page, `Вперёд` and `Последняя` are disabled.
+- When only one page exists, all four pagination buttons are disabled.
 
 ## Technical changes
 
-- В `script.js` обновлена разметка `renderLeaderboardPagination`.
-- В `script.js` расширен обработчик `data-page-action`:
+- Updated `renderLeaderboardPagination` in `script.js`.
+- Extended the shared pagination click handler to support:
   - `first`
   - `prev`
   - `next`
   - `last`
-- Использована одна общая схема расчета следующей страницы без дублирования логики.
+- Kept one shared next-page calculation path for all actions.
 
 ## Risk assessment
 
-### Потенциально затронутые сценарии
+### Potentially affected scenarios
 
-- существующие переходы `Назад` / `Вперёд`;
-- отключение кнопок на первой и последней страницах;
-- совместная работа пагинации и сортировки;
-- production smoke на опубликованной версии.
+- existing `Назад` / `Вперёд` behavior;
+- disabled-state logic on first and last pages;
+- interaction between sorting and pagination;
+- production smoke behavior on the published app.
 
-### Почему риск считается приемлемым
+### Why the risk is acceptable
 
-- core-логика пагинации не менялась;
-- изменение локализовано в UI-слое пагинации;
-- новые сценарии покрыты Playwright-тестами;
-- существующие e2e-сценарии после изменения остаются зелеными.
+- Core pagination helpers were not changed.
+- The change is localized to the leaderboard UI layer.
+- The new behavior is covered by Playwright tests.
+- Existing end-to-end scenarios remain green after the change.
 
-### Остаточный риск
+### Residual risk
 
-- низкий.
+- Low.
 
 ## Testing
 
 ### Updated tests
 
 - `tests/e2e/smoke.spec.js`
-  - проверка отображения `Первая` / `Последняя`
-  - проверка перехода на первую и последнюю страницу
-  - проверка полного disable-state при одной странице
+  - verifies `Первая` and `Последняя` are rendered;
+  - verifies first/last page navigation on a 3-page fixture with 25 records;
+  - verifies all four buttons are disabled when only one page exists.
 - `tests/e2e/functional.spec.js`
-  - обновлен сценарий совместной работы сортировки и пагинации
+  - verifies sorting and pagination still work together;
+  - now checks a non-trivial jump to the last page on a 3-page fixture.
 - `tests/e2e/production-smoke.spec.js`
-  - обновлен production smoke сценарий пагинации
+  - verifies production pagination exposes first/last controls and can navigate across pages.
 
 ### Local verification
 
-- `npm test` -> `38/38 passed`
-- `npm run test:e2e` -> `20/20 passed`
+- `npm test`
+- `npm run test:e2e`
 
 ## Why no new unit tests
 
-- Unit-логика пагинации уже находится в `src/leaderboard-core.js` и уже покрыта тестами.
-- В этой задаче не менялся `getPagedLeaderboardRecords` и не менялся `getLeaderboardPageCount`.
-- Изменение относится к UI-слою и пользовательскому поведению, поэтому основной полезный контур здесь — Playwright.
+- Pagination core logic in `src/leaderboard-core.js` was not changed.
+- The feature only changes UI wiring around existing pagination helpers.
+- The most valuable regression coverage here is Playwright, because the change is user-facing and DOM-driven.
 
 ## Files changed
 
@@ -83,9 +84,9 @@
 
 ## Review focus
 
-Прошу отдельно проверить:
+Please pay special attention to:
 
-1. Нет ли регрессии в старом поведении `Назад` / `Вперёд`.
-2. Достаточно ли аккуратно новые кнопки встроены в существующую логику.
-3. Корректно ли отключаются кнопки на первой / последней / единственной странице.
-4. Достаточно ли Playwright-покрытие для этой UI-фичи.
+1. Whether old `Назад` / `Вперёд` behavior still works without regression.
+2. Whether the new buttons are integrated into the existing logic cleanly.
+3. Whether disabled states are correct on first / last / single-page states.
+4. Whether Playwright coverage is now sufficient for a real jump-to-first / jump-to-last scenario.
