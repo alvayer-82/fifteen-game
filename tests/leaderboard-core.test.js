@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareRecords,
   escapeHtml,
+  getFilteredLeaderboardRecords,
   getLeaderboardPageCount,
   getPagedLeaderboardRecords,
   getSortedLeaderboardRecords,
@@ -175,8 +176,24 @@ describe("leaderboard-core", () => {
     expect(getUniquePlayers(mixedRecords)).toEqual(["Superman", "Maksim"]);
   });
 
+  it("filters records by player name case-insensitively", () => {
+    const filtered = getFilteredLeaderboardRecords(records, "super");
+
+    expect(filtered.map((record) => record.player)).toEqual(["Superman", "Superman"]);
+  });
+
+  it("returns all records when search query is empty or blank", () => {
+    expect(getFilteredLeaderboardRecords(records, "")).toEqual(records);
+    expect(getFilteredLeaderboardRecords(records, "   ")).toEqual(records);
+  });
+
+  it("returns an empty array when no players match the query", () => {
+    expect(getFilteredLeaderboardRecords(records, "Batman")).toEqual([]);
+  });
+
   it("works with an empty leaderboard collection", () => {
     expect(getSortedLeaderboardRecords([], { key: "moves", direction: "asc" })).toEqual([]);
+    expect(getFilteredLeaderboardRecords([], "Alex")).toEqual([]);
     expect(getPagedLeaderboardRecords([], 1, 10)).toEqual({
       page: 1,
       totalPages: 1,

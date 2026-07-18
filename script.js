@@ -23,6 +23,7 @@ import {
 } from "./src/game-core.js";
 import {
   escapeHtml,
+  getFilteredLeaderboardRecords,
   getLeaderboardPageCount,
   getPagedLeaderboardRecords,
   getSortedLeaderboardRecords,
@@ -46,6 +47,7 @@ const playerNameInput = document.getElementById("playerName");
 const playerSuggestionsElement = document.getElementById("playerSuggestions");
 const leaderboardElement = document.getElementById("leaderboard");
 const leaderboardPaginationElement = document.getElementById("leaderboardPagination");
+const leaderboardSearchInput = document.getElementById("leaderboardSearch");
 const testConfig = window.__FIFTEEN_GAME_TEST_CONFIG__ ?? null;
 const isTestMode = Boolean(testConfig);
 const testLeaderboardRecords = Array.isArray(testConfig?.leaderboardRecords)
@@ -73,6 +75,7 @@ let leaderboardSort = {
   direction: "asc"
 };
 let leaderboardPage = 1;
+let leaderboardSearchQuery = "";
 
 function renderBoard() {
   boardElement.innerHTML = "";
@@ -137,6 +140,11 @@ function renderLeaderboardPagination(totalRecords, currentPage, totalPages) {
   `;
 }
 
+function getVisibleLeaderboardRecords(records) {
+  const filteredRecords = getFilteredLeaderboardRecords(records, leaderboardSearchQuery);
+  return getSortedLeaderboardRecords(filteredRecords, leaderboardSort);
+}
+
 function renderLeaderboard(records, note) {
   if (note) {
     leaderboardElement.innerHTML = `<div class="leaderboard-empty">${escapeHtml(note)}</div>`;
@@ -150,8 +158,15 @@ function renderLeaderboard(records, note) {
     return;
   }
 
-  const sortedRecords = getSortedLeaderboardRecords(records, leaderboardSort);
-  const pagedLeaderboard = getPagedLeaderboardRecords(sortedRecords, leaderboardPage, leaderboardPageSize);
+  const visibleRecords = getVisibleLeaderboardRecords(records);
+
+  if (visibleRecords.length === 0) {
+    leaderboardElement.innerHTML = '<div class="leaderboard-empty">Записи не найдены.</div>';
+    leaderboardPaginationElement.innerHTML = "";
+    return;
+  }
+
+  const pagedLeaderboard = getPagedLeaderboardRecords(visibleRecords, leaderboardPage, leaderboardPageSize);
   leaderboardPage = pagedLeaderboard.page;
 
   const rows = pagedLeaderboard.records
@@ -190,7 +205,7 @@ function renderLeaderboard(records, note) {
     ${rows}
   `;
 
-  renderLeaderboardPagination(sortedRecords.length, leaderboardPage, pagedLeaderboard.totalPages);
+  renderLeaderboardPagination(visibleRecords.length, leaderboardPage, pagedLeaderboard.totalPages);
 }
 
 function renderPlayerSuggestions(records) {
@@ -452,6 +467,12 @@ leaderboardElement.addEventListener("click", (event) => {
   renderLeaderboard(leaderboardRecords);
 });
 
+leaderboardSearchInput.addEventListener("input", () => {
+  leaderboardSearchQuery = leaderboardSearchInput.value;
+  leaderboardPage = 1;
+  renderLeaderboard(leaderboardRecords);
+});
+
 leaderboardPaginationElement.addEventListener("click", (event) => {
   const pageButton = event.target.closest("[data-page-action]");
   if (!pageButton) {
@@ -459,7 +480,7 @@ leaderboardPaginationElement.addEventListener("click", (event) => {
   }
 
   const action = pageButton.dataset.pageAction;
-  const totalPages = getLeaderboardPageCount(leaderboardRecords, leaderboardPageSize);
+  const totalPages = getLeaderboardPageCount(getVisibleLeaderboardRecords(leaderboardRecords), leaderboardPageSize);
   const nextPage = {
     first: 1,
     prev: Math.max(1, leaderboardPage - 1),
