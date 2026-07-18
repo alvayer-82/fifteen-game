@@ -65,6 +65,7 @@ let moveCount = 0;
 let secondsElapsed = 0;
 let timerId = null;
 let gameStarted = false;
+let gameFinished = false;
 let currentPlayer = "";
 let leaderboardRecords = [];
 let leaderboardSort = {
@@ -341,6 +342,7 @@ function startGame() {
   moveCount = 0;
   secondsElapsed = 0;
   gameStarted = true;
+  gameFinished = false;
   stopTimer();
   updateStats();
   renderBoard();
@@ -361,6 +363,10 @@ function highlightMovableTile() {
 }
 
 async function handleTileClick(tileIndex) {
+  if (gameFinished) {
+    return;
+  }
+
   const emptyIndex = getEmptyIndex();
 
   if (!areAdjacent(tileIndex, emptyIndex, size)) {
@@ -379,6 +385,8 @@ async function handleTileClick(tileIndex) {
 
   if (isSolved(tiles)) {
     stopTimer();
+    gameStarted = false;
+    gameFinished = true;
     const saved = await saveRecord();
     if (saved) {
       setMessage(`Победа! Вы решили головоломку за ${moveCount} ходов и ${formatTime(secondsElapsed)}. Результат добавлен в общий рейтинг.`);

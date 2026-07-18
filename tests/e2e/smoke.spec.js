@@ -160,6 +160,33 @@ test("handles a winning move in test mode", async ({ page }) => {
   await expect(page.locator("#message")).toContainText("Результат добавлен");
 });
 
+test("does not allow duplicate result saving after victory", async ({ page }) => {
+  await openGame(page, {
+    fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
+    saveResult: true,
+    persistSavedRecord: true,
+    savedRecordCreatedAtMs: 999999
+  });
+
+  await page.fill("#playerName", "OneWinOnly");
+  await page.click("#playerForm button[type='submit']");
+  await page.click("#board .tile:last-of-type");
+
+  const firstDataRow = page.locator(".leaderboard-row").nth(1);
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator(".leaderboard-row")).toHaveCount(11);
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("OneWinOnly");
+  await expect(firstDataRow.locator(".leaderboard-metric").first()).toHaveText("1");
+
+  await page.click("#board .tile:last-of-type");
+
+  await expect(page.locator("#moves")).toHaveText("1");
+  await expect(page.locator(".leaderboard-row")).toHaveCount(11);
+  await expect(page.locator(".leaderboard-player").first()).toHaveText("OneWinOnly");
+  await expect(firstDataRow.locator(".leaderboard-metric").first()).toHaveText("1");
+});
+
 test("shows an unavailable leaderboard message when save fails", async ({ page }) => {
   await openGame(page, {
     fixedTiles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0, 15],
